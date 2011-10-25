@@ -56,6 +56,7 @@ import javax.swing.JOptionPane;
 import freemind.common.OptionalDontShowMeAgainDialog;
 import freemind.common.UnicodeReader;
 import freemind.main.FreeMind;
+import freemind.main.FreeMindCommon;
 import freemind.main.FreeMindMain;
 import freemind.main.HtmlTools;
 import freemind.main.Resources;
@@ -256,7 +257,7 @@ public class MindMapMapModel extends MapAdapter  {
         	if(timerForAutomaticSaving != null) {
         		timerForAutomaticSaving.cancel();
         	}
-            BufferedWriter fileout = new BufferedWriter( new OutputStreamWriter( new FileOutputStream(file) ) );
+            BufferedWriter fileout = new BufferedWriter( new OutputStreamWriter( new FileOutputStream(file), FreeMindCommon.DEFAULT_CHARSET ) );
             getXml(fileout);
 
             if(!isInternal) {
@@ -290,6 +291,7 @@ public class MindMapMapModel extends MapAdapter  {
 	 * @throws IOException
 	 */
 	public void getXml(Writer fileout, boolean saveInvisible, MindMapNode pRootNode) throws IOException {
+		fileout.write("<?xml version=\"1.0\" encoding=\"" + FreeMindCommon.DEFAULT_CHARSET + "\"?>\n");
 		fileout.write("<map ");
 		fileout.write("version=\""+FreeMind.XML_VERSION+"\"");
 		fileout.write(">\n");
@@ -487,6 +489,9 @@ public class MindMapMapModel extends MapAdapter  {
 			in = new BufferedReader(pReader);
 			String str;
 			while ((str = in.readLine()) != null) {
+			    if (!str.startsWith(MAP_INITIAL_START)) {
+					continue;
+				}
 				buffer.append(str);
 				if (buffer.length() >= pMinimumLength)
 					break;

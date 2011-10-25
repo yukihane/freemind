@@ -2118,7 +2118,7 @@ public class XMLElement
     {
         try {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
-            OutputStreamWriter writer = new OutputStreamWriter(out);
+            OutputStreamWriter writer = new OutputStreamWriter(out, FreeMindCommon.DEFAULT_CHARSET);
             this.write(writer);
             writer.flush();
             return new String(out.toByteArray());
@@ -2270,7 +2270,7 @@ public class XMLElement
                     break;
                 default:
                     int unicode = (int) ch;
-                    if((unicode < 32)||(unicode > 126)) {
+                    if(unicode < 32) {
                         writer.write('&'); writer.write('#');
                         writer.write('x');
                         writer.write(Integer.toString(unicode, 16));

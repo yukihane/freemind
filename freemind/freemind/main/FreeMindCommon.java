@@ -162,6 +162,8 @@ public class FreeMindCommon {
 
     public static final String LOCAL_PROPERTIES = "LocalProperties.";
 
+    public static final String DEFAULT_CHARSET = "UTF-8";
+
 	private final FreeMindMain mFreeMindMain;
 
     private String baseDir;
