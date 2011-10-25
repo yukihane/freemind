@@ -45,7 +45,7 @@ public class FixedHTMLWriter extends HTMLWriter {
    * @param   len           Length
    */
   public FixedHTMLWriter( Writer writer, HTMLDocument doc, int pos, int len ) {
-    super( writer, doc, pos, len );
+    super( new CodeWriter(writer), doc, pos, len );
   }
   
 
