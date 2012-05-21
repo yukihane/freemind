@@ -26,17 +26,15 @@ package freemind.modes.mindmapmode.actions;
 import java.awt.datatransfer.Transferable;
 import java.awt.event.ActionEvent;
 import java.util.Iterator;
-import java.util.List;
 
 import javax.swing.AbstractAction;
 import javax.swing.ImageIcon;
 import javax.swing.JOptionPane;
-import javax.swing.tree.TreeNode;
 
 import freemind.common.OptionalDontShowMeAgainDialog;
-import freemind.common.TextTranslator;
 import freemind.controller.actions.generated.instance.DeleteNodeAction;
 import freemind.controller.actions.generated.instance.PasteNodeAction;
+import freemind.controller.actions.generated.instance.UndoPasteNodeAction;
 import freemind.controller.actions.generated.instance.XmlAction;
 import freemind.extensions.PermanentNodeHook;
 import freemind.main.FreeMind;
@@ -45,26 +43,31 @@ import freemind.modes.mindmapmode.MindMapController;
 import freemind.modes.mindmapmode.actions.PasteAction.NodeCoordinate;
 import freemind.modes.mindmapmode.actions.xml.ActionPair;
 import freemind.modes.mindmapmode.actions.xml.ActorXml;
-
+import freemind.view.mindmapview.MapView;
+import freemind.view.mindmapview.NodeView;
 
 public class DeleteChildAction extends AbstractAction implements ActorXml {
 	private final MindMapController mMindMapController;
-    private String text;
-    public DeleteChildAction(MindMapController modeController) {
-        super(modeController.getText("remove_node"), new ImageIcon(
-                modeController.getResource("images/editdelete.png")));
-		text = modeController.getText("remove_node");
-        this.mMindMapController = modeController;
-		this.mMindMapController.getActionFactory().registerActor(this, getDoActionClass());
-    }
+	private String text;
 
-    public void actionPerformed(ActionEvent e) {
-    	// ask user if not root is selected:
-    	for (Iterator iterator = mMindMapController.getSelecteds().iterator(); iterator.hasNext();) {
+	public DeleteChildAction(MindMapController modeController) {
+		super(modeController.getText("remove_node"), new ImageIcon(
+				modeController.getResource("images/editdelete.png")));
+		text = modeController.getText("remove_node");
+		this.mMindMapController = modeController;
+		this.mMindMapController.getActionFactory().registerActor(this,
+				getDoActionClass());
+	}
+
+	public void actionPerformed(ActionEvent e) {
+		// ask user if not root is selected:
+		for (Iterator iterator = mMindMapController.getSelecteds().iterator(); iterator
+				.hasNext();) {
 			MindMapNode node = (MindMapNode) iterator.next();
-			if(node.isRoot()) {
-	    		mMindMapController.getController().errorMessage(
-	    				mMindMapController.getFrame().getResourceString("cannot_delete_root"));
+			if (node.isRoot()) {
+				mMindMapController.getController().errorMessage(
+						mMindMapController.getFrame().getResourceString(
+								"cannot_delete_root"));
 				return;
 			}
 		}
@@ -76,73 +79,100 @@ public class DeleteChildAction extends AbstractAction implements ActorXml {
 						FreeMind.RESOURCES_DELETE_NODES_WITHOUT_QUESTION),
 				OptionalDontShowMeAgainDialog.ONLY_OK_SELECTION_IS_STORED)
 				.show().getResult();
-		if(showResult != JOptionPane.OK_OPTION) {
+		if (showResult != JOptionPane.OK_OPTION) {
 			return;
 		}
-        // because of multiple selection, cut is better.
-    	mMindMapController.cut();
-       //this.c.deleteNode(c.getSelected());
-    }
-    /* (non-Javadoc)
-     * @see freemind.controller.actions.ActorXml#act(freemind.controller.actions.generated.instance.XmlAction)
-     */
-    public void act(XmlAction action) {
+		// because of multiple selection, cut is better.
+		mMindMapController.cut();
+		// this.c.deleteNode(c.getSelected());
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * freemind.controller.actions.ActorXml#act(freemind.controller.actions.
+	 * generated.instance.XmlAction)
+	 */
+	public void act(XmlAction action) {
 		DeleteNodeAction deleteNodeAction = (DeleteNodeAction) action;
-		MindMapNode selectedNode = this.mMindMapController.getNodeFromID(deleteNodeAction.getNode());
+		MindMapNode selectedNode = this.mMindMapController
+				.getNodeFromID(deleteNodeAction.getNode());
 		deleteWithoutUndo(selectedNode);
-    }
-    /**
+	}
+
+	/**
      */
-    public void deleteWithoutUndo(MindMapNode selectedNode) {
-        // remove hooks:
+	public void deleteWithoutUndo(MindMapNode selectedNode) {
+		// remove hooks:
+		removeHooks(selectedNode);
+		MindMapNode parent = selectedNode.getParentNode();
+		mMindMapController.fireNodePreDeleteEvent(selectedNode);
+		// deregister node:
+		mMindMapController.getModel().getLinkRegistry()
+				.deregisterLinkTarget(selectedNode);		
+		MapView view = mMindMapController.getView();
+		NodeView nodeView = view.getNodeView(selectedNode);
+		if(view.getSelecteds().size()>1) {
+			view.deselect(nodeView);
+		} else {
+			view.selectAsTheOnlyOneSelected(view.getNodeView(parent));
+		}
+		mMindMapController.removeNodeFromParent(selectedNode);
+		// post event
+		mMindMapController.fireNodePostDeleteEvent(selectedNode, parent);
+	}
+
+	private void removeHooks(MindMapNode selectedNode) {
+		for (Iterator it = selectedNode.childrenUnfolded(); it.hasNext();) {
+			MindMapNode child = (MindMapNode) it.next();
+			removeHooks(child);
+		}
 		long currentRun = 0;
 		// determine timeout:
 		long timeout = selectedNode.getActivatedHooks().size() * 2 + 2;
-        while(selectedNode.getActivatedHooks().size() > 0) {
-            PermanentNodeHook hook = (PermanentNodeHook) selectedNode.getActivatedHooks().iterator().next();
-            selectedNode.removeHook(hook);
-            if(currentRun++ > timeout) {
-                throw new IllegalStateException("Timeout reached shutting down the hooks.");
-            }
-        }
-        MindMapNode parent = selectedNode.getParentNode();
-        mMindMapController.fireNodePreDeleteEvent(selectedNode);
-        // deregister node:
-        mMindMapController.getModel().getLinkRegistry().deregisterLinkTarget(selectedNode);
-		mMindMapController.removeNodeFromParent( selectedNode);
-		// post event
-		mMindMapController.fireNodePostDeleteEvent(selectedNode, parent);
-    }
-
-    /* (non-Javadoc)
-     * @see freemind.controller.actions.ActorXml#getDoActionClass()
-     */
-    public Class getDoActionClass() {
-        return DeleteNodeAction.class;
-    }
-
-	public void deleteNode(MindMapNode selectedNode){
-		String newId = mMindMapController.getNodeID(selectedNode);
-        mMindMapController.getActionFactory().startTransaction(text);
-        MindMapNode parent = selectedNode.getParentNode();
-
-        Transferable copy = mMindMapController.copy(selectedNode, true);
-        NodeCoordinate coord = new NodeCoordinate(selectedNode, selectedNode.isLeft());
-        // Undo-action
-        PasteNodeAction pasteNodeAction=null;
-        pasteNodeAction = mMindMapController.paste.getPasteNodeAction(copy, coord);
-
-        DeleteNodeAction deleteAction = getDeleteNodeAction(newId);
-        mMindMapController.getActionFactory().executeAction(new ActionPair(deleteAction, pasteNodeAction));
-        mMindMapController.getActionFactory().endTransaction(text);
+		while (selectedNode.getActivatedHooks().size() > 0) {
+			PermanentNodeHook hook = (PermanentNodeHook) selectedNode
+					.getActivatedHooks().iterator().next();
+			selectedNode.removeHook(hook);
+			if (currentRun++ > timeout) {
+				throw new IllegalStateException(
+						"Timeout reached shutting down the hooks.");
+			}
+		}
 	}
 
-	public DeleteNodeAction getDeleteNodeAction(String newId)
-		 {
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see freemind.controller.actions.ActorXml#getDoActionClass()
+	 */
+	public Class getDoActionClass() {
+		return DeleteNodeAction.class;
+	}
+
+	public void deleteNode(MindMapNode selectedNode) {
+		String newId = mMindMapController.getNodeID(selectedNode);
+		mMindMapController.getActionFactory().startTransaction(text);
+
+		Transferable copy = mMindMapController.copy(selectedNode, true);
+		NodeCoordinate coord = new NodeCoordinate(selectedNode,
+				selectedNode.isLeft());
+		// Undo-action
+		PasteNodeAction pasteNodeAction = null;
+		pasteNodeAction = mMindMapController.paste.getPasteNodeAction(copy,
+				coord, (UndoPasteNodeAction) null);
+
+		DeleteNodeAction deleteAction = getDeleteNodeAction(newId);
+		mMindMapController.getActionFactory().executeAction(
+				new ActionPair(deleteAction, pasteNodeAction));
+		mMindMapController.getActionFactory().endTransaction(text);
+	}
+
+	public DeleteNodeAction getDeleteNodeAction(String newId) {
 		DeleteNodeAction deleteAction = new DeleteNodeAction();
 		deleteAction.setNode(newId);
 		return deleteAction;
 	}
-
 
 }

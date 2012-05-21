@@ -22,7 +22,6 @@
 /* $Id: TimeList.java,v 1.1.2.6 2008/12/09 21:09:43 christianfoltin Exp $ */
 package accessories.plugins.time;
 
-import java.awt.Color;
 import java.awt.Container;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -47,6 +46,7 @@ import java.util.Vector;
 import java.util.regex.Pattern;
 
 import javax.swing.AbstractAction;
+import javax.swing.Action;
 import javax.swing.JButton;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
@@ -72,9 +72,8 @@ import javax.swing.table.TableCellRenderer;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.Document;
 
-import com.jgoodies.forms.factories.ButtonBarFactory;
-
-import freemind.controller.BlindIcon;
+import freemind.controller.MapModuleManager.MapModuleChangeObserver;
+import freemind.controller.MenuItemSelectedListener;
 import freemind.controller.StructuredMenuHolder;
 import freemind.controller.actions.generated.instance.TimeWindowColumnSetting;
 import freemind.controller.actions.generated.instance.TimeWindowConfigurationStorage;
@@ -84,33 +83,35 @@ import freemind.main.Tools;
 import freemind.modes.MindIcon;
 import freemind.modes.MindMap;
 import freemind.modes.MindMapNode;
+import freemind.modes.Mode;
 import freemind.modes.ModeController;
 import freemind.modes.common.plugins.ReminderHookBase;
 import freemind.modes.mindmapmode.MindMapController;
 import freemind.modes.mindmapmode.hooks.MindMapHookAdapter;
+import freemind.view.MapModule;
 import freemind.view.mindmapview.MultipleImage;
 
 /**
  * @author foltin
- *
- *TODO: 
- * - Extract HTML from nodes and notes.
+ * 
+ *         TODO: - Extract HTML from nodes and notes.
  */
-public class TimeList extends MindMapHookAdapter {
+public class TimeList extends MindMapHookAdapter implements
+		MapModuleChangeObserver {
 
 	private static final int TYPE_DELAY_TIME = 500;
-	
-	private static  String COLUMN_MODIFIED = "Modified";
 
-	private static  String COLUMN_CREATED = "Created";
+	private static String COLUMN_MODIFIED = "Modified";
 
-	private static  String COLUMN_ICONS = "Icons";
+	private static String COLUMN_CREATED = "Created";
 
-	private static  String COLUMN_TEXT = "Text";
+	private static String COLUMN_ICONS = "Icons";
 
-	private static  String COLUMN_DATE = "Date";
+	private static String COLUMN_TEXT = "Text";
 
-	private static  String COLUMN_NOTES = "Notes";
+	private static String COLUMN_DATE = "Date";
+
+	private static String COLUMN_NOTES = "Notes";
 
 	private static final int DATE_COLUMN = 0;
 
@@ -143,8 +144,7 @@ public class TimeList extends MindMapHookAdapter {
 	private boolean showAllNodes = false;
 
 	private static final String WINDOW_PREFERENCE_STORAGE_PROPERTY = TimeList.class
-			.getName()
-			+ "_properties";
+			.getName() + "_properties";
 
 	private FlatNodeTableFilterModel mFlatNodeTableFilterModel;
 
@@ -156,8 +156,16 @@ public class TimeList extends MindMapHookAdapter {
 
 	private JLabel mTreeLabel;
 
+	private MindMapController mMyMindMapController;
+	
+	private boolean mViewFoldedNodes = true;
+
 	public void startupMapHook() {
 		super.startupMapHook();
+
+		mMyMindMapController = super.getMindMapController();
+		getMindMapController().getController().getMapModuleManager()
+				.addListener(this);
 
 		// get strings from resources:
 		COLUMN_MODIFIED = getResourceString("plugins/TimeList.xml_Modified");
@@ -167,23 +175,20 @@ public class TimeList extends MindMapHookAdapter {
 		COLUMN_DATE = getResourceString("plugins/TimeList.xml_Date");
 		COLUMN_NOTES = getResourceString("plugins/TimeList.xml_Notes");
 
-
-
 		showAllNodes = Tools.xmlToBoolean(getResourceString("show_all_nodes"));
-		dialog = new JDialog(getController().getFrame().getJFrame(), true /* modal */);
+		dialog = new JDialog(getController().getFrame().getJFrame(), false /* unmodal */);
 		String windowTitle;
 		if (showAllNodes) {
 			windowTitle = "plugins/TimeManagement.xml_WindowTitle_All_Nodes";
 		} else {
 			windowTitle = "plugins/TimeManagement.xml_WindowTitle";
 		}
-		dialog
-				.setTitle(getResourceString(windowTitle));
+		dialog.setTitle(getResourceString(windowTitle));
 		dialog.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
-		dialog.addWindowListener(new WindowAdapter(){
-		    public void windowClosing(WindowEvent event) {
-		        disposeDialog();
-		    }
+		dialog.addWindowListener(new WindowAdapter() {
+			public void windowClosing(WindowEvent event) {
+				disposeDialog();
+			}
 		});
 		Tools.addEscapeActionToDialog(dialog, new AbstractAction() {
 			public void actionPerformed(ActionEvent arg0) {
@@ -195,161 +200,193 @@ public class TimeList extends MindMapHookAdapter {
 		gbl.columnWeights = new double[] { 1.0f };
 		gbl.rowWeights = new double[] { 1.0f };
 		contentPane.setLayout(gbl);
-		contentPane.add(new JLabel(getResourceString("plugins/TimeManagement.xml_Find")), new GridBagConstraints(0,0,1, 1, 1.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 0, 0));
+		contentPane.add(new JLabel(
+				getResourceString("plugins/TimeManagement.xml_Find")),
+				new GridBagConstraints(0, 0, 1, 1, 1.0, 0.0,
+						GridBagConstraints.WEST, GridBagConstraints.HORIZONTAL,
+						new Insets(0, 0, 0, 0), 0, 0));
 		mFilterTextSearchField = new JTextField();
-		mFilterTextSearchField.getDocument().addDocumentListener(new FilterTextDocumentListener());
-		mFilterTextSearchField.addKeyListener(new KeyAdapter(){
+		mFilterTextSearchField.getDocument().addDocumentListener(
+				new FilterTextDocumentListener());
+		mFilterTextSearchField.addKeyListener(new KeyAdapter() {
 			public void keyPressed(KeyEvent pEvent) {
-//				logger.info("Key event:" + pEvent.getKeyCode());
-				if(pEvent.getKeyCode() == KeyEvent.VK_DOWN) {
+				// logger.info("Key event:" + pEvent.getKeyCode());
+				if (pEvent.getKeyCode() == KeyEvent.VK_DOWN) {
 					logger.info("Set Focus to replace fields");
 					mFilterTextReplaceField.requestFocusInWindow();
 				}
-			}});
-		contentPane.add(/*new JScrollPane*/(mFilterTextSearchField), new GridBagConstraints(0,1, 
-					1, 1, 1.0, 0.0, GridBagConstraints.WEST,
-					GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 0, 0));
-		contentPane.add(new JLabel(getResourceString("plugins/TimeManagement.xml_Replace")), new GridBagConstraints(0,2,1, 1, 1.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 0, 0));
+			}
+		});
+		contentPane.add(/* new JScrollPane */(mFilterTextSearchField),
+				new GridBagConstraints(0, 1, 1, 1, 1.0, 0.0,
+						GridBagConstraints.WEST, GridBagConstraints.HORIZONTAL,
+						new Insets(0, 0, 0, 0), 0, 0));
+		contentPane.add(new JLabel(
+				getResourceString("plugins/TimeManagement.xml_Replace")),
+				new GridBagConstraints(0, 2, 1, 1, 1.0, 0.0,
+						GridBagConstraints.WEST, GridBagConstraints.HORIZONTAL,
+						new Insets(0, 0, 0, 0), 0, 0));
 		mFilterTextReplaceField = new JTextField();
-		contentPane.add(/*new JScrollPane*/(mFilterTextReplaceField), new GridBagConstraints(0,3, 
-				1, 1, 1.0, 0.0, GridBagConstraints.WEST,
-				GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 0, 0));
-		mFilterTextReplaceField.addKeyListener(new KeyAdapter(){
+		contentPane.add(/* new JScrollPane */(mFilterTextReplaceField),
+				new GridBagConstraints(0, 3, 1, 1, 1.0, 0.0,
+						GridBagConstraints.WEST, GridBagConstraints.HORIZONTAL,
+						new Insets(0, 0, 0, 0), 0, 0));
+		mFilterTextReplaceField.addKeyListener(new KeyAdapter() {
 			public void keyPressed(KeyEvent pEvent) {
-				if(pEvent.getKeyCode() == KeyEvent.VK_DOWN) {
+				if (pEvent.getKeyCode() == KeyEvent.VK_DOWN) {
 					logger.info("Set Focus to table");
 					timeTable.requestFocusInWindow();
-				} else if(pEvent.getKeyCode() == KeyEvent.VK_UP) {
+				} else if (pEvent.getKeyCode() == KeyEvent.VK_UP) {
 					logger.info("Set Focus to table");
 					mFilterTextSearchField.requestFocusInWindow();
-				} 
-			}});
+				}
+			}
+		});
 		dateRenderer = new DateRenderer();
 		nodeRenderer = new NodeRenderer();
 		notesRenderer = new NotesRenderer();
 		iconsRenderer = new IconsRenderer(getController());
 		timeTable = new FlatNodeTable();
 		timeTable.addKeyListener(new FlatNodeTableKeyListener());
-		//double click = goto.
+		// double click = goto.
 		timeTable.addMouseListener(new FlatNodeTableMouseAdapter());
-		//disable moving:
+		// disable moving:
 		timeTable.getTableHeader().setReorderingAllowed(false);
-		timeTableModel = updateModel();
-		mFlatNodeTableFilterModel = new FlatNodeTableFilterModel(timeTableModel, NODE_TEXT_COLUMN);
-		sorter = new TableSorter(mFlatNodeTableFilterModel);
-		timeTable.setModel(sorter);
+		updateModel();
 
 		sorter.setTableHeader(timeTable.getTableHeader());
 		sorter.setColumnComparator(Date.class,
 				TableSorter.COMPARABLE_COMAPRATOR);
-		sorter.setColumnComparator(MindMapNode.class,
+		sorter.setColumnComparator(NodeHolder.class,
+				TableSorter.LEXICAL_COMPARATOR);
+		sorter.setColumnComparator(NotesHolder.class,
 				TableSorter.LEXICAL_COMPARATOR);
 		sorter.setColumnComparator(IconsHolder.class,
 				TableSorter.COMPARABLE_COMAPRATOR);
 		// Sort by default by date.
 		sorter.setSortingStatus(DATE_COLUMN, TableSorter.ASCENDING);
 		JScrollPane pane = new JScrollPane(timeTable);
-		contentPane.add(pane, new GridBagConstraints(0,4, 
-				1, 1, 1.0, 10.0, GridBagConstraints.WEST,
-				GridBagConstraints.BOTH, new Insets(0, 0, 0, 0), 0, 0));
-		
+		contentPane.add(pane, new GridBagConstraints(0, 4, 1, 1, 1.0, 10.0,
+				GridBagConstraints.WEST, GridBagConstraints.BOTH, new Insets(0,
+						0, 0, 0), 0, 0));
+
 		mTreeLabel = new JLabel();
-		contentPane.add(new JScrollPane(mTreeLabel), new GridBagConstraints(0,5, 
-				1, 1, 1.0, 1.0, GridBagConstraints.WEST,
+		contentPane.add(new JScrollPane(mTreeLabel), new GridBagConstraints(0,
+				5, 1, 1, 1.0, 1.0, GridBagConstraints.WEST,
 				GridBagConstraints.BOTH, new Insets(0, 0, 0, 0), 0, 0));
 		// button bar
-		final AbstractAction selectAction = new AbstractAction(getResourceString("plugins/TimeManagement.xml_Select")){
-					public void actionPerformed(ActionEvent arg0) {
-						selectSelectedRows();
-					}};
-		JButton selectButton = new JButton(selectAction);
-        final AbstractAction exportAction = new AbstractAction(getResourceString("plugins/TimeManagement.xml_Export")){
-				    public void actionPerformed(ActionEvent arg0) {
-				        exportSelectedRowsAndClose();
-				    }};
-	    JButton exportButton = new JButton(exportAction);
-		AbstractAction replaceAllAction = new AbstractAction(getResourceString("plugins/TimeManagement.xml_Replace_All")){
-					public void actionPerformed(ActionEvent arg0) {
-						replace(new ReplaceAllInfo());
-					}};
-		JButton replaceAllButton = new JButton(replaceAllAction);
-		final AbstractAction replaceSelectedAction = new AbstractAction(getResourceString("plugins/TimeManagement.xml_Replace_Selected")){
-					public void actionPerformed(ActionEvent arg0) {
-						replace(new ReplaceSelectedInfo());
-					}};
-		JButton replaceSelectedButton = new JButton(replaceSelectedAction);
-		final AbstractAction gotoAction = new AbstractAction(getResourceString("plugins/TimeManagement.xml_Goto")){
-					public void actionPerformed(ActionEvent arg0) {
-						selectSelectedRows();
-						disposeDialog();
-					}};
-		JButton gotoButton = new JButton(gotoAction);
-		AbstractAction disposeAction = new AbstractAction(getResourceString("plugins/TimeManagement.xml_Cancel")){
-					public void actionPerformed(ActionEvent arg0) {
-						disposeDialog();
-					}};
-		JButton cancelButton = new JButton(disposeAction);
-		/* Initial State */
-		selectAction.setEnabled(false);
-		gotoAction.setEnabled(false);
-		exportAction.setEnabled(false);
-		replaceSelectedAction.setEnabled(false);
-		
-		JPanel bar = ButtonBarFactory.buildGrowingBar(new JButton[]{
-				cancelButton,
-				exportButton, 
-				replaceAllButton, 
-				replaceSelectedButton, 
-				gotoButton, 
-				selectButton, 
-				});
-		contentPane.add(/*new JScrollPane*/(bar), new GridBagConstraints(0,6,1, 1, 1.0, 1.0, GridBagConstraints.WEST, GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 0, 0));
-		
+		AbstractAction selectAction = new AbstractAction(
+				getResourceString("plugins/TimeManagement.xml_Select")) {
+			public void actionPerformed(ActionEvent arg0) {
+				selectSelectedRows();
+			}
+		};
+		AbstractAction exportAction = new AbstractAction(
+				getResourceString("plugins/TimeManagement.xml_Export")) {
+			public void actionPerformed(ActionEvent arg0) {
+				exportSelectedRowsAndClose();
+			}
+		};
+		AbstractAction replaceAllAction = new AbstractAction(
+				getResourceString("plugins/TimeManagement.xml_Replace_All")) {
+			public void actionPerformed(ActionEvent arg0) {
+				replace(new ReplaceAllInfo());
+			}
+		};
+		AbstractAction replaceSelectedAction = new AbstractAction(
+				getResourceString("plugins/TimeManagement.xml_Replace_Selected")) {
+			public void actionPerformed(ActionEvent arg0) {
+				replace(new ReplaceSelectedInfo());
+			}
+		};
+		AbstractAction gotoAction = new AbstractAction(
+				getResourceString("plugins/TimeManagement.xml_Goto")) {
+			public void actionPerformed(ActionEvent arg0) {
+				selectSelectedRows();
+				disposeDialog();
+			}
+		};
+		AbstractAction disposeAction = new AbstractAction(
+				getResourceString("plugins/TimeManagement.xml_Cancel")) {
+			public void actionPerformed(ActionEvent arg0) {
+				disposeDialog();
+			}
+		};
+
+		AbstractAction toggleViewFoldedNodesAction = new ToggleViewFoldedNodesAction(
+				getResourceString("plugins/TimeManagement.xml_ToggleViewFoldedNodesAction"));
+
+		/** Menu **/
+		StructuredMenuHolder menuHolder = new StructuredMenuHolder();
 		JMenuBar menuBar = new JMenuBar();
-		JMenu menu = new JMenu(getResourceString("plugins/TimeManagement.xml_menu_actions"));
-		AbstractAction[] actionList = new AbstractAction[] { selectAction,
-				gotoAction, 
-				replaceSelectedAction, replaceAllAction, exportAction,
-				disposeAction };
-		for (int i = 0; i < actionList.length; i++) {
-			AbstractAction action = actionList[i];
-			JMenuItem item = menu.add(action);
-			item.setIcon(new BlindIcon(StructuredMenuHolder.ICON_SIZE));
-		}
-		menuBar.add(menu);
+		JMenu menu = new JMenu(
+				getResourceString("plugins/TimeManagement.xml_menu_actions"));
+		menuHolder.addMenu(menu, "main/actions/.");
+		final JMenuItem selectMenuItem = addAccelerator(
+				menuHolder.addAction(selectAction, "main/actions/select"),
+				"keystroke_plugins/TimeList_select");
+		final JMenuItem gotoMenuItem = addAccelerator(
+				menuHolder.addAction(gotoAction, "main/actions/goto"),
+				"keystroke_plugins/TimeList_goto");
+		final JMenuItem replaceSelectedMenuItem = addAccelerator(
+				menuHolder.addAction(replaceSelectedAction,
+						"main/actions/replaceSelected"),
+				"keystroke_plugins/TimeList_replaceSelected");
+		final JMenuItem replaceAllMenuItem = addAccelerator(
+				menuHolder.addAction(replaceAllAction,
+						"main/actions/replaceAll"),
+				"keystroke_plugins/TimeList_replaceAll");
+
+		final JMenuItem exportMenuItem = addAccelerator(
+				menuHolder.addAction(exportAction, "main/actions/export"),
+				"keystroke_plugins/TimeList_export");
+		addAccelerator(
+				menuHolder.addAction(disposeAction, "main/actions/dispose"),
+				"keystroke_plugins/TimeList_dispose");
+		JMenu viewMenu = new JMenu(
+				getResourceString("plugins/TimeManagement.xml_menu_view"));
+		menuHolder.addMenu(viewMenu, "main/view/.");
+		addAccelerator(menuHolder.addAction(toggleViewFoldedNodesAction,
+				"main/view/showFoldedNodes"),
+				"keystroke_plugins/TimeList_showFoldedNodes");
+		menuHolder.updateMenus(menuBar, "main/");
 		dialog.setJMenuBar(menuBar);
 
+		/* Initial State */
+		selectMenuItem.setEnabled(false);
+		gotoMenuItem.setEnabled(false);
+		exportMenuItem.setEnabled(false);
+		replaceSelectedMenuItem.setEnabled(false);
+
 		// table selection listeners to enable/disable menu actions:
-		
 		ListSelectionModel rowSM = timeTable.getSelectionModel();
 		rowSM.addListSelectionListener(new ListSelectionListener() {
-		    public void valueChanged(ListSelectionEvent e) {
-		        //Ignore extra messages.
-		        if (e.getValueIsAdjusting()) return;
-		        
-		        ListSelectionModel lsm =
-		            (ListSelectionModel)e.getSource();
-		        boolean enable = !(lsm.isSelectionEmpty());
-		        replaceSelectedAction.setEnabled(enable);
-		        selectAction.setEnabled(enable);
-		        gotoAction.setEnabled(enable);
-		        exportAction.setEnabled(enable);
-		    }
+			public void valueChanged(ListSelectionEvent e) {
+				// Ignore extra messages.
+				if (e.getValueIsAdjusting())
+					return;
+
+				ListSelectionModel lsm = (ListSelectionModel) e.getSource();
+				boolean enable = !(lsm.isSelectionEmpty());
+				replaceSelectedMenuItem.setEnabled(enable);
+				selectMenuItem.setEnabled(enable);
+				gotoMenuItem.setEnabled(enable);
+				exportMenuItem.setEnabled(enable);
+			}
 		});
 		// table selection listener to display the history of the selected nodes
 		rowSM.addListSelectionListener(new ListSelectionListener() {
 			String getNodeText(MindMapNode node) {
-				return node.getShortText(getController()) 
-				   + ((node.isRoot())?"":
-					   ( " <- " + getNodeText(node.getParentNode())));
+				return Tools.getNodeTextHierarchy(node, getMindMapController());
 			}
+
 			public void valueChanged(ListSelectionEvent e) {
-				//Ignore extra messages.
-				if (e.getValueIsAdjusting()) return;
-				
-				ListSelectionModel lsm =
-					(ListSelectionModel)e.getSource();
-				if(lsm.isSelectionEmpty()) {
+				// Ignore extra messages.
+				if (e.getValueIsAdjusting())
+					return;
+
+				ListSelectionModel lsm = (ListSelectionModel) e.getSource();
+				if (lsm.isSelectionEmpty()) {
 					mTreeLabel.setText("");
 					return;
 				}
@@ -358,92 +395,180 @@ public class TimeList extends MindMapHookAdapter {
 				mTreeLabel.setText(getNodeText(mindMapNode));
 			}
 		});
-		
+
 		// restore preferences:
-		//Retrieve window size and column positions.
-		WindowConfigurationStorage storage = getMindMapController().decorateDialog(dialog, WINDOW_PREFERENCE_STORAGE_PROPERTY);
+		// Retrieve window size and column positions.
+		WindowConfigurationStorage storage = getMindMapController()
+				.decorateDialog(dialog, WINDOW_PREFERENCE_STORAGE_PROPERTY);
 		if (storage != null) {
-			//			 Disable auto resizing
-			timeTable.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
-			int column = 0;
-			for (Iterator i = ((TimeWindowConfigurationStorage) storage).getListTimeWindowColumnSettingList().iterator(); i.hasNext();) {
-                TimeWindowColumnSetting setting = (TimeWindowColumnSetting) i.next();
-                timeTable.getColumnModel().getColumn(column).setPreferredWidth(setting.getColumnWidth());
-                sorter.setSortingStatus(column, setting.getColumnSorting());
-                column++;
-            }
+			setTableConfiguration(storage);
 		}
 		dialog.setVisible(true);
 	}
 
-	protected void exportSelectedRowsAndClose() {
-        int[] selectedRows = timeTable.getSelectedRows();
-        Vector selectedNodes = new Vector();
-        for (int i = 0; i < selectedRows.length; i++) {
-            int row = selectedRows[i];
-            selectedNodes.add(getMindMapNode(row));
-        }
-        // create new map:
-        MindMap newMap = getMindMapController().newMap();
-        MindMapController newMindMapController = (MindMapController) newMap.getModeController();
-//        Tools.BooleanHolder booleanHolder = new Tools.BooleanHolder();
-//        booleanHolder.setValue(false);
-        for (Iterator iter = selectedNodes.iterator(); iter.hasNext();) {
-            MindMapNode node = (MindMapNode) iter.next();
-//            MindMapNode newNode = newMindMapController.addNewNode( newMap.getRootNode(), 0, booleanHolder);
-//            // copy style:
-//            freemind.controller.actions.generated.instance.Pattern pattern = StylePatternFactory.createPatternFromNode(node);
-//            newMindMapController.applyPattern(newNode, pattern);
-//            // copy text:
-//            newMindMapController.setNodeText(newNode, node.getText());
-            MindMapNode copy = node.shallowCopy();
-            if(copy != null) {
-            	  newMindMapController.insertNodeInto(copy, newMap.getRootNode());
-            }
-        }
-        disposeDialog();
-    }
-
-    public interface IReplaceInputInformation {
-		int getLength();
-		NodeHolder getNodeHolderAt(int i);
-        void changeString(NodeHolder holder, String newText);
+	protected void setTableConfiguration(WindowConfigurationStorage storage) {
+		// Disable auto resizing
+		timeTable.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+		final TimeWindowConfigurationStorage timeStorage = (TimeWindowConfigurationStorage) storage;
+		if(mViewFoldedNodes != timeStorage.getViewFoldedNodes()) {
+			toggleViewFoldedNodes();
+		}
+		int column = 0;
+		for (Iterator i = timeStorage
+				.getListTimeWindowColumnSettingList().iterator(); i
+				.hasNext();) {
+			TimeWindowColumnSetting setting = (TimeWindowColumnSetting) i
+					.next();
+			timeTable.getColumnModel().getColumn(column)
+					.setPreferredWidth(setting.getColumnWidth());
+			sorter.setSortingStatus(column, setting.getColumnSorting());
+			column++;
+		}
 	}
 
-    private void replace(IReplaceInputInformation info) {
-        try {
-            String searchString = getText(mFilterTextSearchField.getDocument());
-            String replaceString = getText(mFilterTextReplaceField
-                    .getDocument());
-            replace(info, searchString, replaceString);
-            timeTableModel.fireTableDataChanged();
-            mFlatNodeTableFilterModel.resetFilter();
-            mFilterTextSearchField.setText("");
-        } catch (BadLocationException e) {
-            freemind.main.Resources.getInstance().logException(e);
-        }
+	/**
+	 * 
+	 */
+	protected void toggleViewFoldedNodes() {
+		mViewFoldedNodes = ! mViewFoldedNodes;
+		updateModel();
+		
+	}
 
-    }
-    
-	
-	public static void replace(IReplaceInputInformation info, String searchString, String replaceString) {
-        String regExp = "(" + getPureRegularExpression(searchString) + ")";
+	protected void decorateButtonAndAction(String stringProperty,
+			final AbstractAction selectAction, JButton selectButton) {
+		String resourceString = getResourceString(stringProperty);
+		selectAction.putValue(AbstractAction.NAME,
+				resourceString.replaceAll("&", ""));
+		Tools.setLabelAndMnemonic(selectButton, resourceString);
+	}
+
+	protected void exportSelectedRowsAndClose() {
+		int[] selectedRows = timeTable.getSelectedRows();
+		Vector selectedNodes = new Vector();
+		for (int i = 0; i < selectedRows.length; i++) {
+			int row = selectedRows[i];
+			selectedNodes.add(getMindMapNode(row));
+		}
+		// create new map:
+		MindMap newMap = getMindMapController().newMap();
+		MindMapController newMindMapController = (MindMapController) newMap
+				.getModeController();
+		// Tools.BooleanHolder booleanHolder = new Tools.BooleanHolder();
+		// booleanHolder.setValue(false);
+		for (Iterator iter = selectedNodes.iterator(); iter.hasNext();) {
+			MindMapNode node = (MindMapNode) iter.next();
+			// MindMapNode newNode = newMindMapController.addNewNode(
+			// newMap.getRootNode(), 0, booleanHolder);
+			// // copy style:
+			// freemind.controller.actions.generated.instance.Pattern pattern =
+			// StylePatternFactory.createPatternFromNode(node);
+			// newMindMapController.applyPattern(newNode, pattern);
+			// // copy text:
+			// newMindMapController.setNodeText(newNode, node.getText());
+			MindMapNode copy = node.shallowCopy();
+			if (copy != null) {
+				newMindMapController.insertNodeInto(copy, newMap.getRootNode());
+			}
+		}
+		disposeDialog();
+	}
+
+	/**
+	 * @author foltin
+	 * @date 25.04.2012
+	 */
+	private final class MindmapTableModel extends DefaultTableModel {
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see javax.swing.table.AbstractTableModel#getColumnClass(int)
+		 */
+		public Class getColumnClass(int arg0) {
+			switch (arg0) {
+			case DATE_COLUMN:
+			case NODE_CREATED_COLUMN:
+			case NODE_MODIFIED_COLUMN:
+				return Date.class;
+			case NODE_TEXT_COLUMN:
+				return NodeHolder.class;
+			case NODE_ICON_COLUMN:
+				return IconsHolder.class;
+			case NODE_NOTES_COLUMN:
+				return NotesHolder.class;
+			default:
+				return Object.class;
+			}
+		}
+	}
+
+	/**
+	 * @author foltin
+	 * @date 25.04.2012
+	 */
+	private final class ToggleViewFoldedNodesAction extends AbstractAction implements MenuItemSelectedListener {
+		/**
+		 * @param pName
+		 */
+		private ToggleViewFoldedNodesAction(String pName) {
+			super(pName);
+		}
+
+		public void actionPerformed(ActionEvent arg0) {
+			toggleViewFoldedNodes();
+		}
+
+		/* (non-Javadoc)
+		 * @see freemind.controller.MenuItemSelectedListener#isSelected(javax.swing.JMenuItem, javax.swing.Action)
+		 */
+		public boolean isSelected(JMenuItem pCheckItem, Action pAction) {
+			return mViewFoldedNodes;
+		}
+	}
+
+	public interface IReplaceInputInformation {
+		int getLength();
+
+		NodeHolder getNodeHolderAt(int i);
+
+		void changeString(NodeHolder holder, String newText);
+	}
+
+	private void replace(IReplaceInputInformation info) {
+		try {
+			String searchString = getText(mFilterTextSearchField.getDocument());
+			String replaceString = getText(mFilterTextReplaceField
+					.getDocument());
+			replace(info, searchString, replaceString);
+			timeTableModel.fireTableDataChanged();
+			mFlatNodeTableFilterModel.resetFilter();
+			mFilterTextSearchField.setText("");
+		} catch (BadLocationException e) {
+			freemind.main.Resources.getInstance().logException(e);
+		}
+
+	}
+
+	public static void replace(IReplaceInputInformation info,
+			String searchString, String replaceString) {
+		String regExp = "(" + getPureRegularExpression(searchString) + ")";
 		Pattern p = Pattern.compile(regExp, Pattern.CASE_INSENSITIVE);
-//        String replacement = getPureRegularExpression(replaceString);
-        String replacement = (replaceString);
+		// String replacement = getPureRegularExpression(replaceString);
+		String replacement = (replaceString);
 		int length = info.getLength();
 		for (int i = 0; i < length; i++) {
 			NodeHolder nodeHolder = info.getNodeHolderAt(i);
 			String text = nodeHolder.node.getText();
-			String replaceResult = HtmlTools.getInstance().getReplaceResult(p, replacement, text);
-            if (!Tools.safeEquals(text, replaceResult)) {
-                // set new node text only, if different.
-                info.changeString(nodeHolder, replaceResult);
-            }
+			String replaceResult = HtmlTools.getInstance().getReplaceResult(p,
+					replacement, text);
+			if (!Tools.safeEquals(text, replaceResult)) {
+				// set new node text only, if different.
+				info.changeString(nodeHolder, replaceResult);
+			}
 		}
 	}
 
-    private class ReplaceAllInfo implements IReplaceInputInformation {
+	private class ReplaceAllInfo implements IReplaceInputInformation {
 		public int getLength() {
 			return mFlatNodeTableFilterModel.getRowCount();
 		}
@@ -453,25 +578,26 @@ public class TimeList extends MindMapHookAdapter {
 					NODE_TEXT_COLUMN);
 		}
 
-        public void changeString(NodeHolder nodeHolder, String newText) {
-            getMindMapController().setNodeText(nodeHolder.node, newText);
-        }
+		public void changeString(NodeHolder nodeHolder, String newText) {
+			getMindMapController().setNodeText(nodeHolder.node, newText);
+		}
 	}
 
 	private class ReplaceSelectedInfo implements IReplaceInputInformation {
 		public int getLength() {
 			return timeTable.getSelectedRowCount();
 		}
-		
+
 		public NodeHolder getNodeHolderAt(int i) {
-			return (NodeHolder) sorter.getValueAt(timeTable.getSelectedRows()[i],
-					NODE_TEXT_COLUMN);
+			return (NodeHolder) sorter.getValueAt(
+					timeTable.getSelectedRows()[i], NODE_TEXT_COLUMN);
 		}
+
 		public void changeString(NodeHolder nodeHolder, String newText) {
-		    getMindMapController().setNodeText(nodeHolder.node, newText);
+			getMindMapController().setNodeText(nodeHolder.node, newText);
 		}
 	}
-	
+
 	private void selectSelectedRows() {
 		selectNodes(timeTable.getSelectedRow(), timeTable.getSelectedRows());
 	}
@@ -484,76 +610,81 @@ public class TimeList extends MindMapHookAdapter {
 	private void selectNodes(int focussedRow, int[] selectedRows) {
 		if (focussedRow >= 0) {
 			MindMapNode focussedNode = getMindMapNode(focussedRow);
-//			getController().centerNode(focussedNode);
+			// getController().centerNode(focussedNode);
 			Vector selectedNodes = new Vector();
-            for (int i = 0; i < selectedRows.length; i++) {
+			for (int i = 0; i < selectedRows.length; i++) {
 				int row = selectedRows[i];
 				selectedNodes.add(getMindMapNode(row));
 			}
-            getMindMapController().selectMultipleNodes(focussedNode, selectedNodes);
+			getMindMapController().select(focussedNode, selectedNodes);
 		}
 	}
 
 	/**
      */
-    private MindMapNode getMindMapNode(int focussedRow) {
-        MindMapNode selectedNode = ((NodeHolder) timeTable.getModel()
-        		.getValueAt(focussedRow, NODE_TEXT_COLUMN)).node;
-        return selectedNode;
-    }
+	private MindMapNode getMindMapNode(int focussedRow) {
+		MindMapNode selectedNode = ((NodeHolder) timeTable.getModel()
+				.getValueAt(focussedRow, NODE_TEXT_COLUMN)).node;
+		return selectedNode;
+	}
 
-    /**
+	/**
 	 * Creates a table model for the new table and returns it.
 	 */
 	private DefaultTableModel updateModel() {
-		MindMapNode node = getController().getMap().getRootNode();
-		DefaultTableModel model = new DefaultTableModel() {
-			/*
-			 * (non-Javadoc)
-			 *
-			 * @see javax.swing.table.AbstractTableModel#getColumnClass(int)
-			 */
-			public Class getColumnClass(int arg0) {
-				switch (arg0) {
-				case DATE_COLUMN:
-				case NODE_CREATED_COLUMN:
-				case NODE_MODIFIED_COLUMN:
-					return Date.class;
-				case NODE_TEXT_COLUMN:
-					return NodeHolder.class;
-				case NODE_ICON_COLUMN:
-					return IconsHolder.class;
-				case NODE_NOTES_COLUMN:
-					return NotesHolder.class;
-				default:
-					return Object.class;
-				}
-			}
-		};
-
+		TimeWindowConfigurationStorage storage = null;
+		// if not first call, get configuration
+		if(sorter != null) {
+			storage = getTableConfiguration();
+		}
+		DefaultTableModel model = new MindmapTableModel();
 		model.addColumn(COLUMN_DATE);
 		model.addColumn(COLUMN_TEXT);
 		model.addColumn(COLUMN_ICONS);
 		model.addColumn(COLUMN_CREATED);
 		model.addColumn(COLUMN_MODIFIED);
 		model.addColumn(COLUMN_NOTES);
+		MindMapNode node = getMindMapController().getMap().getRootNode();
 		updateModel(model, node);
+		timeTableModel = model;
+		mFlatNodeTableFilterModel = new FlatNodeTableFilterModel(
+				timeTableModel, NODE_TEXT_COLUMN);
+		if(sorter == null) {
+			sorter = new TableSorter(mFlatNodeTableFilterModel);
+			timeTable.setModel(sorter);
+		} else {
+			sorter.setTableModel(mFlatNodeTableFilterModel);
+		}
+		if(storage != null) {
+			setTableConfiguration(storage);
+		}
+		try {
+			String text = getRegularExpression(getText(mFilterTextSearchField
+					.getDocument()));
+			mFlatNodeTableFilterModel.setFilter(text);
+		} catch (BadLocationException e) {
+			freemind.main.Resources.getInstance().logException(e);
+		}
 		return model;
 	}
 
 	private void updateModel(DefaultTableModel model, MindMapNode node) {
 		ReminderHookBase hook = TimeManagementOrganizer.getHook(node);
-		Date date = null;
-		if (hook != null) {
-			date = new Date(hook.getRemindUserAt());
-		}
 		// show all nodes or only those with reminder:
 		if (showAllNodes || hook != null) {
+			Date date = null;
+			if (hook != null) {
+				date = new Date(hook.getRemindUserAt());
+			}
 			model.addRow(new Object[] { date, new NodeHolder(node),
 					new IconsHolder(node),
 					node.getHistoryInformation().getCreatedAt(),
 					node.getHistoryInformation().getLastModifiedAt(),
-					new NotesHolder(node)});
+					new NotesHolder(node) });
+		}
+		if((!mViewFoldedNodes) && node.isFolded()) {
+			// no recursion, if folded nodes should be hidden.
+			return;
 		}
 		for (Iterator i = node.childrenUnfolded(); i.hasNext();) {
 			MindMapNode child = (MindMapNode) i.next();
@@ -567,15 +698,15 @@ public class TimeList extends MindMapHookAdapter {
 		if (timePanel == null) {
 			timePanel = new JPanel();
 			timePanel.setLayout(new GridBagLayout());
-			//			{
-			//				GridBagConstraints gb2 = new GridBagConstraints();
-			//				gb2.gridx = 0;
-			//				gb2.gridy = 0;
-			//				gb2.fill = GridBagConstraints.HORIZONTAL;
-			//				timePanel.add(new JLabel(
-			//						getResourceString("plugins/TimeManagement.xml_hour")),
-			//						gb2);
-			//			}
+			// {
+			// GridBagConstraints gb2 = new GridBagConstraints();
+			// gb2.gridx = 0;
+			// gb2.gridy = 0;
+			// gb2.fill = GridBagConstraints.HORIZONTAL;
+			// timePanel.add(new JLabel(
+			// getResourceString("plugins/TimeManagement.xml_hour")),
+			// gb2);
+			// }
 		}
 		return timePanel;
 	}
@@ -586,93 +717,106 @@ public class TimeList extends MindMapHookAdapter {
 	private void disposeDialog() {
 		// store window positions:
 
-		TimeWindowConfigurationStorage storage = new TimeWindowConfigurationStorage();
-        for(int i = 0; i< timeTable.getColumnCount(); i++) {
-        	TimeWindowColumnSetting setting = new TimeWindowColumnSetting();
-        	setting.setColumnWidth(timeTable.getColumnModel().getColumn(i).getWidth());
-        	setting.setColumnSorting(sorter.getSortingStatus(i));
-        	storage.addTimeWindowColumnSetting(setting);
-        }
-        getMindMapController().storeDialogPositions(dialog, storage, WINDOW_PREFERENCE_STORAGE_PROPERTY);
+		TimeWindowConfigurationStorage storage = getTableConfiguration();
+		getMindMapController().storeDialogPositions(dialog, storage,
+				WINDOW_PREFERENCE_STORAGE_PROPERTY);
+
+		getMindMapController().getController().getMapModuleManager()
+				.removeListener(this);
 		dialog.setVisible(false);
 		dialog.dispose();
 	}
 
-	public static String getRegularExpression(String text) throws BadLocationException {
-		text = ".*("+text+").*";
+	protected TimeWindowConfigurationStorage getTableConfiguration() {
+		TimeWindowConfigurationStorage storage = new TimeWindowConfigurationStorage();
+		storage.setViewFoldedNodes(mViewFoldedNodes);
+		for (int i = 0; i < timeTable.getColumnCount(); i++) {
+			TimeWindowColumnSetting setting = new TimeWindowColumnSetting();
+			setting.setColumnWidth(timeTable.getColumnModel().getColumn(i)
+					.getWidth());
+			setting.setColumnSorting(sorter.getSortingStatus(i));
+			storage.addTimeWindowColumnSetting(setting);
+		}
+		return storage;
+	}
+
+	public static String getRegularExpression(String text)
+			throws BadLocationException {
+		text = ".*(" + text + ").*";
 		return text;
 	}
 
-    /**
-     * @throws BadLocationException
-     */
-    private String getText(Document document) throws BadLocationException {
-        String text = document.getText(
-				0, document.getLength());
-        return text;
-    }
+	/**
+	 * @throws BadLocationException
+	 */
+	private String getText(Document document) throws BadLocationException {
+		String text = document.getText(0, document.getLength());
+		return text;
+	}
 
-    /**
-     * Removes all regular expression stuff with exception of "*",
-     * which is replaced by ".*".
-     */
-    public static String getPureRegularExpression(String text) {
-        // remove regexp:
-		text=text.replaceAll("([().\\[\\]^$|])", "\\\\$1");
-		text=text.replaceAll("\\*", ".*");
-        return text;
-    }
+	/**
+	 * Removes all regular expression stuff with exception of "*", which is
+	 * replaced by ".*".
+	 */
+	public static String getPureRegularExpression(String text) {
+		// remove regexp:
+		text = text.replaceAll("([().\\[\\]^$|])", "\\\\$1");
+		text = text.replaceAll("\\*", ".*");
+		return text;
+	}
 
 	private final class FilterTextDocumentListener implements DocumentListener {
 		private Timer mTypeDelayTimer = null;
-		
+
 		private synchronized void change(DocumentEvent event) {
 			// stop old timer, if present:
-			if(mTypeDelayTimer!= null) {
+			if (mTypeDelayTimer != null) {
 				mTypeDelayTimer.cancel();
 				mTypeDelayTimer = null;
 			}
 			mTypeDelayTimer = new Timer();
-			mTypeDelayTimer.schedule(new DelayedTextEntry(event), TYPE_DELAY_TIME);
+			mTypeDelayTimer.schedule(new DelayedTextEntry(event),
+					TYPE_DELAY_TIME);
 		}
-		
+
 		public void insertUpdate(DocumentEvent event) {
 			change(event);
 		}
 
 		public void removeUpdate(DocumentEvent event) {
 			change(event);
-			
+
 		}
 
 		public void changedUpdate(DocumentEvent event) {
 			change(event);
-			
-		}
-	    protected class DelayedTextEntry extends TimerTask {
 
-	        private final DocumentEvent event;
+		}
+
+		protected class DelayedTextEntry extends TimerTask {
+
+			private final DocumentEvent event;
 
 			DelayedTextEntry(DocumentEvent event) {
 				this.event = event;
-	        }
+			}
 
-	        public void run() {
-	            SwingUtilities.invokeLater(new Runnable() {
-	                public void run() {
-	                    try {
-	                        Document document = event.getDocument();
-	                        String text = getRegularExpression(getText(document));
-	                        mFlatNodeTableFilterModel.setFilter(text);
-	                    } catch (BadLocationException e) {
-	                        freemind.main.Resources.getInstance().logException(					e);
-	                        mFlatNodeTableFilterModel.resetFilter();
-	                    }
-	                }
-	            }    
-	            );
-	        }
-	    }
+			public void run() {
+				SwingUtilities.invokeLater(new Runnable() {
+					public void run() {
+						try {
+							Document document = event.getDocument();
+							String text = getRegularExpression(getText(document));
+							mFlatNodeTableFilterModel.setFilter(text);
+						} catch (BadLocationException e) {
+							freemind.main.Resources.getInstance().logException(
+									e);
+							mFlatNodeTableFilterModel.resetFilter();
+						}
+					}
+				});
+			}
+		}
 
 	}
 
@@ -681,7 +825,7 @@ public class TimeList extends MindMapHookAdapter {
 			if (e.getClickCount() == 2) {
 				Point p = e.getPoint();
 				int row = timeTable.rowAtPoint(p);
-				gotoNodesAndClose(row, new int[]{row});
+				gotoNodesAndClose(row, new int[] { row });
 			}
 		}
 	}
@@ -758,7 +902,8 @@ public class TimeList extends MindMapHookAdapter {
 		}
 
 		public void setValue(Object value) {
-			setText((value == null) ? "" : ((NodeHolder) value).getUntaggedNodeText());
+			setText((value == null) ? "" : ((NodeHolder) value)
+					.getUntaggedNodeText());
 		}
 	}
 
@@ -766,17 +911,22 @@ public class TimeList extends MindMapHookAdapter {
 		public NotesRenderer() {
 			super();
 		}
-		
+
 		public void setValue(Object value) {
-			setText((value == null) ? "" : ((NotesHolder) value).getUntaggedNotesText());
+			setText((value == null) ? "" : ((NotesHolder) value)
+					.getUntaggedNotesText());
 		}
 	}
-	
-	/** removes html in nodes before comparison.*/
+
+	/** removes html in nodes before comparison. */
 	public static class NodeHolder implements Comparable {
 		private final MindMapNode node;
-		private String untaggedNodeText=null;
-		private String originalNodeText=null;
+		private String untaggedNodeText = null;
+		/**
+		 * Holds the original node content to cache the untaggedNodeText and to
+		 * see whether or not the cache is dirty.
+		 */
+		private String originalNodeText = null;
 
 		/**
 		 *
@@ -790,53 +940,61 @@ public class TimeList extends MindMapHookAdapter {
 		}
 
 		public String toString() {
-            return getUntaggedNodeText();
+			return getUntaggedNodeText();
 		}
 
-        public String getUntaggedNodeText() {
-            String nodeText = node.getText();
-            if(untaggedNodeText==null || (originalNodeText != null && !originalNodeText.equals(nodeText))) {
-                originalNodeText = nodeText;
-                // remove tags:
-                untaggedNodeText = HtmlTools.removeHtmlTagsFromString(nodeText).replaceAll("\\s+", " ");
-            }
-            return untaggedNodeText;
-        }
+		public String getUntaggedNodeText() {
+			String nodeText = node.getText();
+			// cache empty or dirty?:
+			if (untaggedNodeText == null
+					|| (originalNodeText != null && !originalNodeText
+							.equals(nodeText))) {
+				originalNodeText = nodeText;
+				// remove tags:
+				untaggedNodeText = HtmlTools.htmlToPlain(nodeText)
+						.replaceAll("\\s+", " ");
+			}
+			return untaggedNodeText;
+		}
 
 	}
-	/** removes html in notes before comparison.*/
+
+	/** removes html in notes before comparison. */
 	public static class NotesHolder implements Comparable {
 		private final MindMapNode node;
-		private String untaggedNotesText=null;
-		private String originalNotesText=null;
-		
+		private String untaggedNotesText = null;
+		private String originalNotesText = null;
+
 		/**
 		 *
 		 */
 		public NotesHolder(MindMapNode node) {
 			this.node = node;
 		}
-		
+
 		public int compareTo(Object compareToObject) {
 			return toString().compareTo(compareToObject.toString());
 		}
-		
+
 		public String toString() {
 			return getUntaggedNotesText();
 		}
-		
+
 		public String getUntaggedNotesText() {
 			String notesText = node.getNoteText();
-			if(notesText == null) 
+			if (notesText == null)
 				return "";
-			if(untaggedNotesText==null || (originalNotesText != null && !originalNotesText.equals(notesText))) {
+			if (untaggedNotesText == null
+					|| (originalNotesText != null && !originalNotesText
+							.equals(notesText))) {
 				originalNotesText = notesText;
 				// remove tags:
-					untaggedNotesText = HtmlTools.removeHtmlTagsFromString(notesText).replaceAll("\\s+", " ");
+				untaggedNotesText = HtmlTools.removeHtmlTagsFromString(
+						notesText).replaceAll("\\s+", " ");
 			}
 			return untaggedNotesText;
 		}
-		
+
 	}
 
 	static class IconsHolder implements Comparable {
@@ -889,8 +1047,7 @@ public class TimeList extends MindMapHookAdapter {
 				for (Iterator i = iconsHolder.getIcons().iterator(); i
 						.hasNext();) {
 					MindIcon icon = (MindIcon) i.next();
-					iconImages
-							.addImage(icon.getIcon());
+					iconImages.addImage(icon.getIcon());
 				}
 				if (iconImages.getImageCount() > 0) {
 					setIcon(iconImages);
@@ -899,5 +1056,71 @@ public class TimeList extends MindMapHookAdapter {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Overwritten, as this dialog is not modal, but after the plugin has
+	 * terminated, the dialog is still present and needs the controller to store
+	 * its values.
+	 * */
+	public MindMapController getMindMapController() {
+		return mMyMindMapController;
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see freemind.controller.MapModuleManager.MapModuleChangeObserver#
+	 * isMapModuleChangeAllowed(freemind.view.MapModule, freemind.modes.Mode,
+	 * freemind.view.MapModule, freemind.modes.Mode)
+	 */
+	public boolean isMapModuleChangeAllowed(MapModule pOldMapModule,
+			Mode pOldMode, MapModule pNewMapModule, Mode pNewMode) {
+		return true;
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see freemind.controller.MapModuleManager.MapModuleChangeObserver#
+	 * beforeMapModuleChange(freemind.view.MapModule, freemind.modes.Mode,
+	 * freemind.view.MapModule, freemind.modes.Mode)
+	 */
+	public void beforeMapModuleChange(MapModule pOldMapModule, Mode pOldMode,
+			MapModule pNewMapModule, Mode pNewMode) {
+
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * freemind.controller.MapModuleManager.MapModuleChangeObserver#afterMapClose
+	 * (freemind.view.MapModule, freemind.modes.Mode)
+	 */
+	public void afterMapClose(MapModule pOldMapModule, Mode pOldMode) {
+		disposeDialog();
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see freemind.controller.MapModuleManager.MapModuleChangeObserver#
+	 * afterMapModuleChange(freemind.view.MapModule, freemind.modes.Mode,
+	 * freemind.view.MapModule, freemind.modes.Mode)
+	 */
+	public void afterMapModuleChange(MapModule pOldMapModule, Mode pOldMode,
+			MapModule pNewMapModule, Mode pNewMode) {
+		disposeDialog();
+
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see freemind.controller.MapModuleManager.MapModuleChangeObserver#
+	 * numberOfOpenMapInformation(int, int)
+	 */
+	public void numberOfOpenMapInformation(int pNumber, int pIndex) {
 	}
 }

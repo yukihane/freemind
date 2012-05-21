@@ -20,13 +20,6 @@
 
 package freemind.modes.mindmapmode;
 
-import freemind.controller.Controller;
-import freemind.controller.StructuredMenuHolder;
-import freemind.main.Tools;
-import freemind.main.XMLParseException;
-import freemind.modes.Mode;
-import freemind.modes.ModeController;
-
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -34,61 +27,66 @@ import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.util.logging.Logger;
 
-import javax.swing.JMenu;
-import javax.swing.JToolBar;
+import freemind.controller.Controller;
+import freemind.main.XMLParseException;
+import freemind.modes.Mode;
+import freemind.modes.ModeController;
 
 public class MindMapMode extends Mode {
 
-    private Controller c;
-    private MindMapController modecontroller;
-    private final String MODENAME = "MindMap";
+	private Controller c;
+	private MindMapController modecontroller;
+	private final String MODENAME = "MindMap";
 	private boolean isRunning = false;
 	private static Logger logger = null;
 
-    public MindMapMode() {
-    }
+	public MindMapMode() {
+	}
 
-    public void init (Controller c) {
-    		this.c = c;
+	public void init(Controller c) {
+		this.c = c;
 		if (logger == null) {
 			logger = c.getFrame().getLogger(this.getClass().getName());
 		}
-		modecontroller =  (MindMapController) createModeController();
-    }
+		modecontroller = (MindMapController) createModeController();
+	}
 
 	public ModeController createModeController() {
-		logger.finest("Creating new MindMapController..." );
+		logger.finest("Creating new MindMapController...");
 		MindMapController mindMapController = new MindMapController(this);
-		logger.finest("Creating new MindMapController. Done:"+mindMapController );
+		logger.finest("Creating new MindMapController. Done:"
+				+ mindMapController);
 		return mindMapController;
 	}
 
-    public String toString() {
-	return MODENAME;
-    }
+	public String toString() {
+		return MODENAME;
+	}
 
-    /**
-     * Called whenever this mode is chosen in the program.
-     * (updates Actions etc.)
-     */
-    public void activate() {
-        if(isRunning) {
-            c.getMapModuleManager().changeToMapOfMode(this);
-        } else {
-            isRunning = true;
-        }
-    }
+	/**
+	 * Called whenever this mode is chosen in the program. (updates Actions
+	 * etc.)
+	 */
+	public void activate() {
+		if (isRunning) {
+			c.getMapModuleManager().changeToMapOfMode(this);
+		} else {
+			isRunning = true;
+		}
+	}
 
-    public void restore(String restoreable) throws FileNotFoundException, XMLParseException, MalformedURLException, IOException, URISyntaxException {
-	    getDefaultModeController().load(new File(restoreable));
-    }
+	public void restore(String restoreable) throws FileNotFoundException,
+			XMLParseException, MalformedURLException, IOException,
+			URISyntaxException {
+		getDefaultModeController().load(new File(restoreable));
+	}
 
-    public Controller getController() {
-	return c;
-    }
+	public Controller getController() {
+		return c;
+	}
 
-    public ModeController getDefaultModeController() {
-	return modecontroller;
-    }
+	public ModeController getDefaultModeController() {
+		return modecontroller;
+	}
 
 }

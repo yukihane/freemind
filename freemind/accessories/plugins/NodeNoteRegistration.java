@@ -45,6 +45,7 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.text.html.HTMLDocument;
 
+import com.inet.jortho.SpellChecker;
 import com.lightdev.app.shtm.SHTMLPanel;
 import com.lightdev.app.shtm.TextResources;
 
@@ -53,8 +54,7 @@ import freemind.controller.actions.generated.instance.EditNoteToNodeAction;
 import freemind.controller.actions.generated.instance.XmlAction;
 import freemind.extensions.HookRegistration;
 import freemind.main.FreeMind;
-import freemind.main.FreeMindMain;
-import freemind.main.HtmlTools;
+import freemind.main.FreeMindCommon;
 import freemind.main.Resources;
 import freemind.main.Tools;
 import freemind.modes.MindMap;
@@ -67,234 +67,246 @@ import freemind.modes.mindmapmode.MindMapController;
 import freemind.modes.mindmapmode.actions.xml.ActorXml;
 import freemind.view.mindmapview.NodeView;
 
-public class NodeNoteRegistration implements HookRegistration, ActorXml, MenuItemSelectedListener {
+public class NodeNoteRegistration implements HookRegistration, ActorXml,
+		MenuItemSelectedListener {
 	public static final class SimplyHtmlResources implements TextResources {
 		public String getString(String pKey) {
 			// no splash for SimplyHtml.
-			if(Tools.safeEquals("show_splash_screen", pKey)) {
+			if (Tools.safeEquals("show_splash_screen", pKey)) {
 				return "false";
 			}
 			pKey = "simplyhtml." + pKey;
-			String resourceString = Resources.getInstance().getResourceString(pKey, null);
-			if(resourceString == null){
+			String resourceString = Resources.getInstance().getResourceString(
+					pKey, null);
+			if (resourceString == null) {
 				resourceString = Resources.getInstance().getProperty(pKey);
 			}
 			return resourceString;
 		}
 	}
 
-
-
 	private static class SouthPanel extends JPanel {
+		private static final long serialVersionUID = -4624762713662343786L;
+
 		public SouthPanel() {
 			super(new BorderLayout());
 			setBorder(BorderFactory.createEmptyBorder(10, 10, 0, 10));
 		}
-		
-		protected boolean processKeyBinding(KeyStroke ks, KeyEvent e, int condition, boolean pressed) {
-			return super.processKeyBinding(ks, e, condition, pressed) 
-			|| e.getKeyChar() == KeyEvent.VK_SPACE
-			|| e.getKeyChar() == KeyEvent.VK_ALT;			
+
+		protected boolean processKeyBinding(KeyStroke ks, KeyEvent e,
+				int condition, boolean pressed) {
+			return super.processKeyBinding(ks, e, condition, pressed)
+					|| e.getKeyChar() == KeyEvent.VK_SPACE
+					|| e.getKeyChar() == KeyEvent.VK_ALT;
 		}
 	}
 
-
-
 	private final class NoteDocumentListener implements DocumentListener {
-        private MindMapNode mNode;
+		private MindMapNode mNode;
 
 		public void changedUpdate(DocumentEvent arg0) {
-            docEvent();
-        }
+			docEvent();
+		}
 
-        private void docEvent() {
-        	// test if not already marked as dirty:
-        	if(getMindMapController().getMap().isSaved()) {
-        		// now test, if different:
-                String documentText = normalizeString(getDocumentText());
-                String noteText = normalizeString(mNode.getNoteText());
-                logger.fine("Old doc =\n'" + noteText 
-                		+ "', Current document: \n'" + documentText 
-                		+ "'. Comparison: '" + Tools.compareText(noteText, documentText)+"'.");
-                if(!Tools.safeEquals(noteText, documentText)) {
-    				logger.finest("Making map dirty.");
-    				// make map dirty in order to enable automatic save on note
-    				// change.
-    				getMindMapController().getMap().setSaved(false);    				
-                }
-        	}
-        }
+		private void docEvent() {
+			// test if not already marked as dirty:
+			if (getMindMapController().getMap().isSaved()) {
+				// now test, if different:
+				String documentText = normalizeString(getDocumentText());
+				String noteText = normalizeString(mNode.getNoteText());
+				logger.fine("Old doc =\n'" + noteText
+						+ "', Current document: \n'" + documentText
+						+ "'. Comparison: '"
+						+ Tools.compareText(noteText, documentText) + "'.");
+				if (!Tools.safeEquals(noteText, documentText)) {
+					logger.finest("Making map dirty.");
+					// make map dirty in order to enable automatic save on note
+					// change.
+					getMindMapController().getMap().setSaved(false);
+				}
+			}
+		}
 
-        public void insertUpdate(DocumentEvent arg0) {
-            docEvent();
-        }
+		public void insertUpdate(DocumentEvent arg0) {
+			docEvent();
+		}
 
-        public void removeUpdate(DocumentEvent arg0) {
-            docEvent();
-        }
+		public void removeUpdate(DocumentEvent arg0) {
+			docEvent();
+		}
 
 		public void setNode(MindMapNode pNode) {
 			mNode = pNode;
 		}
-    }
+	}
 
-    // private NodeTextListener listener;
+	// private NodeTextListener listener;
 
-    private final class NotesManager implements NodeSelectionListener,
-            NodeLifetimeListener {
+	private final class NotesManager implements NodeSelectionListener,
+			NodeLifetimeListener {
 
-        private MindMapNode node;
+		private MindMapNode node;
 
-        public NotesManager() {
-        }
+		public NotesManager() {
+		}
 
-        public void onDeselectHook(NodeView node) {
-//            logger.info("onDeselectHook for node " + node + " and noteViewerComponent=" + noteViewerComponent);
-            noteViewerComponent.getDocument().removeDocumentListener(
-                    mNoteDocumentListener);
-            // store its content:
-            onSaveNode(node.getModel());
-            this.node = null;
-            // getHtmlEditorPanel().setCurrentDocumentContent("Note", "");
-        }
+		public void onLostFocusNode(NodeView node) {
+			// logger.info("onDeselectHook for node " + node +
+			// " and noteViewerComponent=" + noteViewerComponent);
+			noteViewerComponent.getDocument().removeDocumentListener(
+					mNoteDocumentListener);
+			// store its content:
+			onSaveNode(node.getModel());
+			this.node = null;
+			// getHtmlEditorPanel().setCurrentDocumentContent("Note", "");
+		}
 
-        public void onSelectHook(NodeView nodeView) {
-//        	logger.info("onSelectHook for node " + node + " and noteViewerComponent=" + noteViewerComponent);
-            this.node = nodeView.getModel();
-            final HTMLDocument document = noteViewerComponent.getDocument();
-            // remove listener to avoid unnecessary dirty events.
-            document.removeDocumentListener(
-                    mNoteDocumentListener);
+		public void onFocusNode(NodeView nodeView) {
+			// logger.info("onSelectHook for node " + node +
+			// " and noteViewerComponent=" + noteViewerComponent);
+			this.node = nodeView.getModel();
+			final HTMLDocument document = noteViewerComponent.getDocument();
+			// remove listener to avoid unnecessary dirty events.
+			document.removeDocumentListener(mNoteDocumentListener);
 			try {
-//	Dimitry:
-//				Images referenced from documents with bases given by 
-//				pFile.toURI().toURL() are  not shown in SimplyHTML
-//				(bug [ freemind-Bugs-2019223 ] Images are not shown in the Notes view)
-//				=> the old method File.toURL() must be used again.
-				document.setBase(node.getMap().getFile().toURL());
+				// Dimitry:
+				// Images referenced from documents with bases given by
+				// pFile.toURI().toURL() are not shown in SimplyHTML
+				// (bug [ freemind-Bugs-2019223 ] Images are not shown in the
+				// Notes view)
+				// => the old method File.toURL() must be used again.
+				document.setBase(node.getMap().getFile().toURI().toURL());
+			} catch (Exception e) {
 			}
-			catch (Exception e) {} 
 
-            // logger.info("onReceiveFocuse for node " + node.toString());
-            String note = node.getNoteText();
-            if (note != null) {
-                noteViewerComponent.setCurrentDocumentContent(note);
-                mLastContentEmpty = false;
-            } else if (!mLastContentEmpty) {
-                noteViewerComponent.setCurrentDocumentContent("");
-                mLastContentEmpty = true;
-            }
-            mNoteDocumentListener.setNode(node);
+			// logger.info("onReceiveFocuse for node " + node.toString());
+			String note = node.getNoteText();
+			if (note != null) {
+				noteViewerComponent.setCurrentDocumentContent(note);
+				mLastContentEmpty = false;
+			} else if (!mLastContentEmpty) {
+				noteViewerComponent.setCurrentDocumentContent("");
+				mLastContentEmpty = true;
+			}
+			mNoteDocumentListener.setNode(node);
 			document.addDocumentListener(mNoteDocumentListener);
-        }
+		}
 
-        public void onUpdateNodeHook(MindMapNode node) {
-        }
+		public void onUpdateNodeHook(MindMapNode node) {
+		}
 
-        public void onSaveNode(MindMapNode node) {
-            if (this.node != node) {
-                return;
-            }
-            boolean editorContentEmpty = true;
-//            // TODO: Save the style with the note.
-//			StyleSheet styleSheet = noteViewerComponent.getDocument()
-//					.getStyleSheet();
-//			styleSheet.removeStyle("body");
-//			styleSheet.removeStyle("p");
-            JEditorPane editorPane = noteViewerComponent.getEditorPane();
-            int caretPosition = editorPane.getCaretPosition();
+		public void onSaveNode(MindMapNode node) {
+			if (this.node != node) {
+				return;
+			}
+			boolean editorContentEmpty = true;
+			// // TODO: Save the style with the note.
+			// StyleSheet styleSheet = noteViewerComponent.getDocument()
+			// .getStyleSheet();
+			// styleSheet.removeStyle("body");
+			// styleSheet.removeStyle("p");
+			JEditorPane editorPane = noteViewerComponent.getEditorPane();
+			int caretPosition = editorPane.getCaretPosition();
 			int selectionStart = editorPane.getSelectionStart();
-            int selectionEnd = editorPane.getSelectionEnd();
-            String documentText = getDocumentText();
-            editorContentEmpty = documentText.equals(NodeNote.EMPTY_EDITOR_STRING)
-                    || documentText.equals(NodeNote.EMPTY_EDITOR_STRING_ALTERNATIVE)
-                    || documentText.equals(NodeNote.EMPTY_EDITOR_STRING_ALTERNATIVE2);
-            String noteText = node.getNoteText();
-//			logger.info("Old doc =\n'" + ((noteText==null)?noteText:noteText.replaceAll("\n", "\\\\n")) + "', Current document: \n'" + documentText.replaceAll("\n", "\\\\n") + "', empty="+editorContentEmpty);
-            controller.deregisterNodeSelectionListener(this);
-            if (noteViewerComponent.needsSaving()) {
-                if (editorContentEmpty) {
-                    changeNoteText(null, node);
-                } else {
-                    changeNoteText(documentText, node);
-                }
-                mLastContentEmpty = editorContentEmpty;
-            }
-            controller.registerNodeSelectionListener(this);
-            editorPane.setCaretPosition(caretPosition);
-            editorPane.setSelectionEnd(selectionEnd);
-            editorPane.setSelectionStart(selectionStart);
-        }
+			int selectionEnd = editorPane.getSelectionEnd();
+			String documentText = getDocumentText();
+			editorContentEmpty = documentText
+					.equals(NodeNote.EMPTY_EDITOR_STRING)
+					|| documentText
+							.equals(NodeNote.EMPTY_EDITOR_STRING_ALTERNATIVE)
+					|| documentText
+							.equals(NodeNote.EMPTY_EDITOR_STRING_ALTERNATIVE2);
+			// String noteText = node.getNoteText();
+			// logger.info("Old doc =\n'" +
+			// ((noteText==null)?noteText:noteText.replaceAll("\n", "\\\\n")) +
+			// "', Current document: \n'" + documentText.replaceAll("\n",
+			// "\\\\n") + "', empty="+editorContentEmpty);
+			controller.deregisterNodeSelectionListener(this);
+			if (noteViewerComponent.needsSaving()) {
+				if (editorContentEmpty) {
+					changeNoteText(null, node);
+				} else {
+					changeNoteText(documentText, node);
+				}
+				mLastContentEmpty = editorContentEmpty;
+			}
+			controller.registerNodeSelectionListener(this, false);
+			editorPane.setCaretPosition(caretPosition);
+			editorPane.setSelectionEnd(selectionEnd);
+			editorPane.setSelectionStart(selectionStart);
+		}
 
-        public void onCreateNodeHook(MindMapNode node) {
-            if (node.getXmlNoteText() != null) {
-                setStateIcon(node, true);
-            }
-        }
+		public void onCreateNodeHook(MindMapNode node) {
+			if (node.getXmlNoteText() != null) {
+				setStateIcon(node, true);
+			}
+		}
 
-        public void onPreDeleteNode(MindMapNode node) {
-        }
+		public void onPreDeleteNode(MindMapNode node) {
+		}
 
 		public void onPostDeleteNode(MindMapNode pNode, MindMapNode pParent) {
 		}
-    }
 
-    private static SHTMLPanel htmlEditorPanel;
+		/* (non-Javadoc)
+		 * @see freemind.modes.ModeController.NodeSelectionListener#onSelectionChange(freemind.modes.MindMapNode, boolean)
+		 */
+		public void onSelectionChange(NodeView pNode, boolean pIsSelected) {
+		}
+	}
 
-    /**
-     * Indicates, whether or not the main panel has to be refreshed with new
-     * content. The typical content will be empty, so this state is saved
-     * here.
-     */
-    private static boolean mLastContentEmpty = true;
+	private static SHTMLPanel htmlEditorPanel;
 
-    private final MindMapController controller;
+	/**
+	 * Indicates, whether or not the main panel has to be refreshed with new
+	 * content. The typical content will be empty, so this state is saved here.
+	 */
+	private static boolean mLastContentEmpty = true;
 
-    protected SHTMLPanel noteViewerComponent;
+	private final MindMapController controller;
 
-    private final MindMap mMap;
+	protected SHTMLPanel noteViewerComponent;
 
-    private final java.util.logging.Logger logger;
+	private final java.util.logging.Logger logger;
 
-    private NotesManager mNotesManager;
+	private NotesManager mNotesManager;
 
-    private static ImageIcon noteIcon = null;
+	private static ImageIcon noteIcon = null;
 
-    private NoteDocumentListener mNoteDocumentListener;
+	private NoteDocumentListener mNoteDocumentListener;
 
-    static Integer sPositionToRecover = null;
-    
+	static Integer sPositionToRecover = null;
+
 	private JSplitPane mSplitPane = null;
-    
-    public NodeNoteRegistration(ModeController controller, MindMap map) {
-        this.controller = (MindMapController) controller;
-        mMap = map;
-        logger = controller.getFrame().getLogger(this.getClass().getName());
 
-    }
-    
-    public boolean shouldUseSplitPane() {
-    	return "true".equals(controller.getFrame()
-    			.getProperty(FreeMind.RESOURCES_USE_SPLIT_PANE));
-    }
+	public NodeNoteRegistration(ModeController controller, MindMap map) {
+		this.controller = (MindMapController) controller;
+		logger = controller.getFrame().getLogger(this.getClass().getName());
+	}
 
-    class JumpToMapAction extends AbstractAction{
-        public void actionPerformed(ActionEvent e) {
-            if (sPositionToRecover != null) {
-                mSplitPane.setDividerLocation(sPositionToRecover
-                        .intValue());
-                sPositionToRecover = null;
-            }
-            logger.info("Jumping back to map!");
-            controller.getController().obtainFocusForSelected();
-        }
-    };
-    public void register() {
-        logger.fine("Registration of note handler.");
-        controller.getActionFactory().registerActor(this,
-                getDoActionClass());
-        // moved to registration:
-        noteViewerComponent = getNoteViewerComponent();
+	public boolean shouldUseSplitPane() {
+		return "true".equals(controller.getFrame().getProperty(
+				FreeMind.RESOURCES_USE_SPLIT_PANE));
+	}
+
+	class JumpToMapAction extends AbstractAction {
+		private static final long serialVersionUID = -531070508254258791L;
+
+		public void actionPerformed(ActionEvent e) {
+			if (sPositionToRecover != null) {
+				mSplitPane.setDividerLocation(sPositionToRecover.intValue());
+				sPositionToRecover = null;
+			}
+			logger.info("Jumping back to map!");
+			controller.getController().obtainFocusForSelected();
+		}
+	};
+
+	public void register() {
+		logger.fine("Registration of note handler.");
+		controller.getActionFactory().registerActor(this, getDoActionClass());
+		// moved to registration:
+		noteViewerComponent = getNoteViewerComponent();
 		// register "leave note" action:
 		Action jumpToMapAction = new JumpToMapAction();
 		String keystroke = controller
@@ -309,77 +321,82 @@ public class NodeNoteRegistration implements HookRegistration, ActorXml, MenuIte
 		noteViewerComponent.getActionMap().put("jumpToMapAction",
 				jumpToMapAction);
 
-        if (shouldUseSplitPane()) {
+		if (shouldUseSplitPane()) {
 			showNotesPanel();
 		}
 		mNotesManager = new NotesManager();
-        controller.registerNodeSelectionListener(mNotesManager);
-        controller.registerNodeLifetimeListener(mNotesManager);
-        mNoteDocumentListener = new NoteDocumentListener();
-    }
+		controller.registerNodeSelectionListener(mNotesManager, false);
+		controller.registerNodeLifetimeListener(mNotesManager);
+		mNoteDocumentListener = new NoteDocumentListener();
+	}
 
-    public void deRegister() {
-        controller.deregisterNodeSelectionListener(mNotesManager);
-        controller.deregisterNodeLifetimeListener(mNotesManager);
-        noteViewerComponent.getActionMap().remove("jumpToMapAction");
+	public void deRegister() {
+		controller.deregisterNodeSelectionListener(mNotesManager);
+		controller.deregisterNodeLifetimeListener(mNotesManager);
 
-        if (noteViewerComponent != null && shouldUseSplitPane()) {
-            hideNotesPanel();
-            noteViewerComponent = null;
-        }
-        logger.fine("Deregistration of note undo handler.");
-        controller.getActionFactory().deregisterActor(getDoActionClass());
-    }
+		if (noteViewerComponent != null && shouldUseSplitPane()) {
+			noteViewerComponent.getActionMap().remove("jumpToMapAction");
+			hideNotesPanel();
+			noteViewerComponent = null;
+		}
+		logger.fine("Deregistration of note undo handler.");
+		controller.getActionFactory().deregisterActor(getDoActionClass());
+	}
 
-    public void showNotesPanel() {
-    	SouthPanel southPanel = new SouthPanel();
-    	southPanel.add(noteViewerComponent, BorderLayout.CENTER);
-    	noteViewerComponent.setVisible(true);
-    	if("true".equals(controller.getFrame()
-    			.getProperty(FreeMind.RESOURCES_USE_DEFAULT_FONT_FOR_NOTES_TOO))) {
-	    	// set default font for notes:
-	    	Font defaultFont = controller.getController().getDefaultFont();
-	    	if (Resources.getInstance().getBoolProperty("experimental_font_sizing_for_long_node_editors")) {
-		    	/* This is a proposal of Dan, but it doesn't work
-		    	 * as expected. 
-		    	 * 
-		    	 * http://sourceforge.net/tracker/?func=detail&aid=2800933&group_id=7118&atid=107118
-		    	 */
-				defaultFont = Tools.updateFontSize(defaultFont, this
-						.getMindMapController().getView().getZoom(), defaultFont
-						.getSize());
-	    	}
-	        String rule = "BODY {";
-	        rule += "font-family: "+defaultFont.getFamily()+";";
-	        rule += "font-size: "+defaultFont.getSize()+"pt;";
-	        rule += "}\n";
-	        if("true".equals(controller.getFrame()
-	        		.getProperty(FreeMind.RESOURCES_USE_MARGIN_TOP_ZERO_FOR_NOTES))) {
-		        /* this is used for paragraph spacing. I put it here, too, as
-		         * the tooltip display uses the same spacing. But it is to be discussed.
-		         * fc, 23.3.2009.
-		         */
-		        rule += "p {";
-		        rule += "margin-top:0;";            
-		        rule += "}\n";
-	        }
-	        noteViewerComponent.getDocument().getStyleSheet().addRule(rule);
-	        // done setting default font.
-    	}
-    	noteViewerComponent.setOpenHyperlinkHandler(new ActionListener(){
+	public void showNotesPanel() {
+		SouthPanel southPanel = new SouthPanel();
+		southPanel.add(noteViewerComponent, BorderLayout.CENTER);
+		noteViewerComponent.setVisible(true);
+		if ("true".equals(controller.getFrame().getProperty(
+				FreeMind.RESOURCES_USE_DEFAULT_FONT_FOR_NOTES_TOO))) {
+			// set default font for notes:
+			Font defaultFont = controller.getController().getDefaultFont();
+			if (Resources.getInstance().getBoolProperty(
+					"experimental_font_sizing_for_long_node_editors")) {
+				/*
+				 * This is a proposal of Dan, but it doesn't work as expected.
+				 * 
+				 * http://sourceforge.net/tracker/?func=detail&aid=2800933&group_id
+				 * =7118&atid=107118
+				 */
+				defaultFont = Tools.updateFontSize(defaultFont,
+						this.getMindMapController().getView().getZoom(),
+						defaultFont.getSize());
+			}
+			String rule = "BODY {";
+			rule += "font-family: " + defaultFont.getFamily() + ";";
+			rule += "font-size: " + defaultFont.getSize() + "pt;";
+			rule += "}\n";
+			if ("true".equals(controller.getFrame().getProperty(
+					FreeMind.RESOURCES_USE_MARGIN_TOP_ZERO_FOR_NOTES))) {
+				/*
+				 * this is used for paragraph spacing. I put it here, too, as
+				 * the tooltip display uses the same spacing. But it is to be
+				 * discussed. fc, 23.3.2009.
+				 */
+				rule += "p {";
+				rule += "margin-top:0;";
+				rule += "}\n";
+			}
+			noteViewerComponent.getDocument().getStyleSheet().addRule(rule);
+			// done setting default font.
+		}
+		noteViewerComponent.setOpenHyperlinkHandler(new ActionListener() {
 
 			public void actionPerformed(ActionEvent pE) {
 				try {
-					getMindMapController().getFrame().openDocument(new URL(pE.getActionCommand()));
+					getMindMapController().getFrame().openDocument(
+							new URL(pE.getActionCommand()));
 				} catch (Exception e) {
 					freemind.main.Resources.getInstance().logException(e);
 				}
-			}});
-    	mSplitPane = controller.getFrame().insertComponentIntoSplitPane(
-    			southPanel);
-    	southPanel.revalidate();
-    }
-    
+			}
+		});
+		mSplitPane = controller.getFrame().insertComponentIntoSplitPane(
+				southPanel);
+		southPanel.revalidate();
+	}
+
 	public void hideNotesPanel() {
 		// shut down the display:
 		noteViewerComponent.setVisible(false);
@@ -387,76 +404,83 @@ public class NodeNoteRegistration implements HookRegistration, ActorXml, MenuIte
 		mSplitPane = null;
 	}
 
-    protected void setStateIcon(MindMapNode node, boolean enabled) {
-        // icon
-        if (noteIcon == null) {
-            noteIcon = new ImageIcon(controller
-                    .getResource("images/knotes.png"));
-        }
-        boolean showIcon = enabled;
-        if (Resources.getInstance().getBoolProperty(
+	protected void setStateIcon(MindMapNode node, boolean enabled) {
+		// icon
+		if (noteIcon == null) {
+			noteIcon = new ImageIcon(
+					controller.getResource("images/knotes.png"));
+		}
+		boolean showIcon = enabled;
+		if (Resources.getInstance().getBoolProperty(
 				FreeMind.RESOURCES_DON_T_SHOW_NOTE_ICONS)) {
 			showIcon = false;
 		}
-        node.setStateIcon(NodeNoteBase.NODE_NOTE_ICON, (showIcon) ? noteIcon
-                : null);
-        // tooltip, first try.
-        getMindMapController().setToolTip(node, "nodeNoteText", (enabled)?node.getNoteText():null);
-    }
+		node.setStateIcon(NodeNoteBase.NODE_NOTE_ICON, (showIcon) ? noteIcon
+				: null);
+		// tooltip, first try.
+		if (!Resources.getInstance().getBoolProperty(
+				FreeMind.RESOURCES_DON_T_SHOW_NOTE_TOOLTIPS)) {
+			getMindMapController().setToolTip(node, "nodeNoteText",
+					(enabled) ? node.getNoteText() : null);
+		}
+	}
 
-    public void act(XmlAction action) {
-        if (action instanceof EditNoteToNodeAction) {
-            EditNoteToNodeAction noteTextAction = (EditNoteToNodeAction) action;
-            MindMapNode node = controller.getNodeFromID(noteTextAction
-                    .getNode());
-            String newText = noteTextAction.getText();
-            String oldText = node.getNoteText();
-            if (!Tools.safeEquals(newText, oldText)) {
-                node.setNoteText(newText);
-                // update display only, if the node is displayed.
-                if (node == controller.getSelected()
-                        && (!Tools.safeEquals(newText, getHtmlEditorPanel()
-                                .getDocumentText()))) {
-                    getHtmlEditorPanel().setCurrentDocumentContent(
-                            newText == null ? "" : newText);
-                }
-                setStateIcon(node, ! (newText == null || newText.equals("")));
-                controller.nodeChanged(node);
-            }
-        }
-    }
+	public void act(XmlAction action) {
+		if (action instanceof EditNoteToNodeAction) {
+			EditNoteToNodeAction noteTextAction = (EditNoteToNodeAction) action;
+			MindMapNode node = controller.getNodeFromID(noteTextAction
+					.getNode());
+			String newText = noteTextAction.getText();
+			String oldText = node.getNoteText();
+			if (!Tools.safeEquals(newText, oldText)) {
+				node.setNoteText(newText);
+				// update display only, if the node is displayed.
+				if (node == controller.getSelected()
+						&& (!Tools.safeEquals(newText, getHtmlEditorPanel()
+								.getDocumentText()))) {
+					getHtmlEditorPanel().setCurrentDocumentContent(
+							newText == null ? "" : newText);
+				}
+				setStateIcon(node, !(newText == null || newText.equals("")));
+				controller.nodeChanged(node);
+			}
+		}
+	}
 
-    public Class getDoActionClass() {
-        return EditNoteToNodeAction.class;
-    }
+	public Class getDoActionClass() {
+		return EditNoteToNodeAction.class;
+	}
 
-    /**
-     * Set text with undo:
-     * 
-     */
-    public void changeNoteText(String text, MindMapNode node) {
-    	getMindMapController().setNoteText(node, text);        	
-    }
+	/**
+	 * Set text with undo:
+	 * 
+	 */
+	public void changeNoteText(String text, MindMapNode node) {
+		getMindMapController().setNoteText(node, text);
+	}
 
-    /**
-     */
-    private MindMapController getMindMapController() {
-        return controller;
-    }
+	private MindMapController getMindMapController() {
+		return controller;
+	}
 
+	protected SHTMLPanel getNoteViewerComponent() {
+		return getHtmlEditorPanel();
+	}
 
-    protected SHTMLPanel getNoteViewerComponent() {
-        return getHtmlEditorPanel();
-    }
+	public static SHTMLPanel getHtmlEditorPanel() {
+		if (htmlEditorPanel == null) {
+			SHTMLPanel.setResources(new SimplyHtmlResources());
+			htmlEditorPanel = SHTMLPanel.createSHTMLPanel();
+			htmlEditorPanel.setMinimumSize(new Dimension(100, 100));
 
-    public static SHTMLPanel getHtmlEditorPanel() {
-        if (htmlEditorPanel == null) {
-            SHTMLPanel.setResources(new SimplyHtmlResources());
-            htmlEditorPanel = SHTMLPanel.createSHTMLPanel();
-            htmlEditorPanel.setMinimumSize(new Dimension(100, 100));
-        }
-        return htmlEditorPanel;
-    }
+	        boolean checkSpelling = Resources.getInstance().
+	        		getBoolProperty(FreeMindCommon.CHECK_SPELLING);
+			if (checkSpelling) {
+				SpellChecker.register(htmlEditorPanel.getEditorPane());
+			}
+		}
+		return htmlEditorPanel;
+	}
 
 	public JSplitPane getSplitPane() {
 		return mSplitPane;
@@ -472,11 +496,11 @@ public class NodeNoteRegistration implements HookRegistration, ActorXml, MenuIte
 		documentText = documentText.replaceFirst("(?s)<style.*?</style>", "");
 		return documentText;
 	}
-	
+
 	private String normalizeString(String input) {
-		if(input == null)
+		if (input == null)
 			input = NodeNote.EMPTY_EDITOR_STRING;
-		//return null;
+		// return null;
 		return input.replaceAll("\\s+", " ").replaceAll("  +", " ").trim();
 	}
 }

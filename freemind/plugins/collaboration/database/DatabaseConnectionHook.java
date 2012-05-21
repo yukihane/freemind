@@ -23,6 +23,7 @@
 
 package plugins.collaboration.database;
 
+import freemind.extensions.DontSaveMarker;
 import freemind.extensions.PermanentNodeHook;
 import freemind.main.XMLElement;
 import freemind.modes.MindMapNode;
@@ -32,7 +33,8 @@ import freemind.view.mindmapview.NodeView;
  * @author foltin
  * 
  */
-public class DatabaseConnectionHook extends DatabaseBasics implements PermanentNodeHook {
+public class DatabaseConnectionHook extends DatabaseBasics implements
+		PermanentNodeHook, DontSaveMarker {
 
 	/**
      *
@@ -60,7 +62,7 @@ public class DatabaseConnectionHook extends DatabaseBasics implements PermanentN
 		shutdownConnection();
 		super.shutdownMapHook();
 	}
-	
+
 	public void shutdownConnection() {
 		if (mUpdateThread != null) {
 			mUpdateThread.deregisterFilter();
@@ -71,36 +73,39 @@ public class DatabaseConnectionHook extends DatabaseBasics implements PermanentN
 
 	public void onAddChild(MindMapNode pAddedChildNode) {
 	}
-	
+
 	public void onAddChildren(MindMapNode pAddedChild) {
 	}
-	
-	public void onDeselectHook(NodeView pNodeView) {
+
+	public void onLostFocusNode(NodeView pNodeView) {
 	}
-	
+
 	public void onNewChild(MindMapNode pNewChildNode) {
 	}
-	
+
 	public void onRemoveChild(MindMapNode pOldChildNode) {
 	}
-	
+
 	public void onRemoveChildren(MindMapNode pOldChildNode, MindMapNode pOldDad) {
 	}
-	
-	public void onSelectHook(NodeView pNodeView) {
+
+	public void onFocusNode(NodeView pNodeView) {
 	}
-	
+
 	public void onUpdateChildrenHook(MindMapNode pUpdatedNode) {
 	}
-	
+
 	public void onUpdateNodeHook() {
 	}
-	
+
 	public void onViewCreatedHook(NodeView pNodeView) {
 	}
-	
+
 	public void onViewRemovedHook(NodeView pNodeView) {
 	}
 
-}
+	public Integer getRole() {
+		return ROLE_SLAVE;
+	}
 
+}

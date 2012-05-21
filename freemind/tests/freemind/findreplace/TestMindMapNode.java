@@ -42,7 +42,6 @@ import freemind.controller.filter.FilterInfo;
 import freemind.extensions.NodeHook;
 import freemind.extensions.PermanentNodeHook;
 import freemind.main.XMLElement;
-import freemind.main.Tools.BooleanHolder;
 import freemind.modes.HistoryInformation;
 import freemind.modes.MindIcon;
 import freemind.modes.MindMap;
@@ -57,340 +56,351 @@ import freemind.view.mindmapview.NodeView;
 import freemind.view.mindmapview.NodeViewVisitor;
 
 final class TestMindMapNode implements MindMapNode {
-    private String text = "";
-    public String getText() {
-        return text;
-    }
-
-    public void setText(String text) {
-        this.text = text;
-    }
-
-    public String getObjectId(ModeController controller) {
-        return null;
-    }
-
-    public ListIterator childrenFolded() {
-        return null;
-    }
-
-    public ListIterator childrenUnfolded() {
-        return null;
-    }
-
-    public boolean hasChildren() {
-        return false;
-    }
-
-    public FilterInfo getFilterInfo() {
-        return null;
-    }
-
-    public int getChildPosition(MindMapNode childNode) {
-        return 0;
-    }
-
-    public MindMapNode getPreferredChild() {
-        return null;
-    }
-
-    public void setPreferredChild(MindMapNode node) {
-    }
-
-    public int getNodeLevel() {
-        return 0;
-    }
+	private String text = "";
+
+	public String getText() {
+		return text;
+	}
+
+	public void setText(String text) {
+		this.text = text;
+	}
+
+	public boolean hasFoldedParents() {
+		if(isRoot())
+			return false;
+		if(getParentNode().isFolded()) {
+			return true;
+		}
+		return getParentNode().hasFoldedParents();
+	}
+
+	public String getObjectId(ModeController controller) {
+		return null;
+	}
+
+	public ListIterator childrenFolded() {
+		return null;
+	}
+
+	public ListIterator childrenUnfolded() {
+		return null;
+	}
+
+	public boolean hasChildren() {
+		return false;
+	}
+
+	public FilterInfo getFilterInfo() {
+		return null;
+	}
+
+	public int getChildPosition(MindMapNode childNode) {
+		return 0;
+	}
+
+	public MindMapNode getPreferredChild() {
+		return null;
+	}
+
+	public void setPreferredChild(MindMapNode node) {
+	}
+
+	public int getNodeLevel() {
+		return 0;
+	}
 
-    public String getLink() {
-        return null;
-    }
+	public String getLink() {
+		return null;
+	}
 
-    public String getShortText(ModeController controller) {
-        return null;
-    }
+	public String getShortText(ModeController controller) {
+		return null;
+	}
 
-    public MindMapEdge getEdge() {
-        return null;
-    }
+	public MindMapEdge getEdge() {
+		return null;
+	}
 
-    public Color getColor() {
-        return null;
-    }
+	public Color getColor() {
+		return null;
+	}
 
-    public String getStyle() {
-        return null;
-    }
+	public String getStyle() {
+		return null;
+	}
 
-    public void setStyle(String style) {
-    }
+	public void setStyle(String style) {
+	}
 
-    public boolean hasStyle(){
-    	return false;
-    }
-    
-    public MindMapNode getParentNode() {
-        return null;
-    }
+	public boolean hasStyle() {
+		return false;
+	}
 
-    public boolean isBold() {
-        return false;
-    }
+	public MindMapNode getParentNode() {
+		return null;
+	}
 
-    public boolean isItalic() {
-        return false;
-    }
+	public boolean isBold() {
+		return false;
+	}
 
-    public boolean isUnderlined() {
-        return false;
-    }
+	public boolean isItalic() {
+		return false;
+	}
 
-    public Font getFont() {
-        return null;
-    }
+	public boolean isUnderlined() {
+		return false;
+	}
 
-    public String getFontSize() {
-        return null;
-    }
+	public Font getFont() {
+		return null;
+	}
 
-    public String getFontFamilyName() {
-        return null;
-    }
+	public String getFontSize() {
+		return null;
+	}
 
-    public Collection getViewers() {
-        return null;
-    }
+	public String getFontFamilyName() {
+		return null;
+	}
 
-    public void addViewer(NodeView viewer) {
-    }
+	public Collection getViewers() {
+		return null;
+	}
 
-    public String getPlainTextContent() {
-        return null;
-    }
+	public void addViewer(NodeView viewer) {
+	}
 
-    public TreePath getPath() {
-        return null;
-    }
+	public String getPlainTextContent() {
+		return null;
+	}
 
-    public boolean isDescendantOf(MindMapNode node) {
-        return false;
-    }
+	public TreePath getPath() {
+		return null;
+	}
 
-    public boolean isRoot() {
-        return false;
-    }
+	public boolean isChildOf(MindMapNode node) {
+		return false;
+	}
 
-    public boolean isFolded() {
-        return false;
-    }
+	public boolean isRoot() {
+		return false;
+	}
 
-    public boolean isLeft() {
-        return false;
-    }
+	public boolean isFolded() {
+		return false;
+	}
 
-    public boolean isOnLeftSideOfRoot() {
-        return false;
-    }
+	public boolean isLeft() {
+		return false;
+	}
 
-    public void setLeft(boolean isLeft) {
-    }
+	public boolean isOnLeftSideOfRoot() {
+		return false;
+	}
 
-    public void setFolded(boolean folded) {
-    }
+	public void setLeft(boolean isLeft) {
+	}
 
-    public void setFont(Font font) {
-    }
+	public void setFolded(boolean folded) {
+	}
 
-    public void setShiftY(int y) {
-    }
+	public void setFont(Font font) {
+	}
 
-    public int getShiftY() {
-        return 0;
-    }
+	public void setShiftY(int y) {
+	}
 
-    public int calcShiftY() {
-        return 0;
-    }
+	public int getShiftY() {
+		return 0;
+	}
 
-    public void setVGap(int i) {
-    }
+	public int calcShiftY() {
+		return 0;
+	}
 
-    public int getVGap() {
-        return 0;
-    }
+	public void setVGap(int i) {
+	}
 
-    public int calcVGap() {
-        return 0;
-    }
+	public int getVGap() {
+		return 0;
+	}
 
-    public void setHGap(int i) {
-    }
+	public int calcVGap() {
+		return 0;
+	}
 
-    public int getHGap() {
-        return 0;
-    }
+	public void setHGap(int i) {
+	}
 
-    public void setLink(String link) {
-    }
+	public int getHGap() {
+		return 0;
+	}
 
-    public void setFontSize(int fontSize) {
-    }
+	public void setLink(String link) {
+	}
 
-    public void setColor(Color color) {
-    }
+	public void setFontSize(int fontSize) {
+	}
 
-    public List getIcons() {
-        return null;
-    }
+	public void setColor(Color color) {
+	}
 
-    public void addIcon(MindIcon icon, int position) {
-    }
+	public List getIcons() {
+		return null;
+	}
 
-    public int removeIcon(int position) {
-        return 0;
-    }
+	public void addIcon(MindIcon icon, int position) {
+	}
 
-    public MindMapCloud getCloud() {
-        return null;
-    }
+	public int removeIcon(int position) {
+		return 0;
+	}
 
-    public void setCloud(MindMapCloud cloud) {
-    }
+	public MindMapCloud getCloud() {
+		return null;
+	}
 
-    public Color getBackgroundColor() {
-        return null;
-    }
+	public void setCloud(MindMapCloud cloud) {
+	}
 
-    public void setBackgroundColor(Color color) {
-    }
+	public Color getBackgroundColor() {
+		return null;
+	}
 
-    public List getHooks() {
-        return null;
-    }
+	public void setBackgroundColor(Color color) {
+	}
 
-    public Collection getActivatedHooks() {
-        return null;
-    }
+	public List getHooks() {
+		return null;
+	}
 
-    public PermanentNodeHook addHook(PermanentNodeHook hook) {
-        return null;
-    }
+	public Collection getActivatedHooks() {
+		return null;
+	}
 
-    public void invokeHook(NodeHook hook) {
-    }
+	public PermanentNodeHook addHook(PermanentNodeHook hook) {
+		return null;
+	}
 
-    public void removeHook(PermanentNodeHook hook) {
-    }
+	public void invokeHook(NodeHook hook) {
+	}
 
-    public void setToolTip(String key, String tip) {
-    }
+	public void removeHook(PermanentNodeHook hook) {
+	}
 
-    public SortedMap getToolTip() {
-        return null;
-    }
+	public void setToolTip(String key, String tip) {
+	}
 
-    public void setAdditionalInfo(String info) {
-    }
+	public SortedMap getToolTip() {
+		return null;
+	}
 
-    public String getAdditionalInfo() {
-        return null;
-    }
+	public void setAdditionalInfo(String info) {
+	}
 
-    public MindMapNode shallowCopy() {
-        return null;
-    }
+	public String getAdditionalInfo() {
+		return null;
+	}
 
-    public XMLElement save(Writer writer, MindMapLinkRegistry registry, boolean saveHidden, boolean saveChildren) throws IOException {
-        return null;
-    }
+	public MindMapNode shallowCopy() {
+		return null;
+	}
 
-    public Map getStateIcons() {
-        return null;
-    }
+	public XMLElement save(Writer writer, MindMapLinkRegistry registry,
+			boolean saveHidden, boolean saveChildren) throws IOException {
+		return null;
+	}
 
-    public void setStateIcon(String key, ImageIcon icon) {
-    }
+	public Map getStateIcons() {
+		return null;
+	}
 
-    public HistoryInformation getHistoryInformation() {
-        return null;
-    }
+	public void setStateIcon(String key, ImageIcon icon) {
+	}
 
-    public void setHistoryInformation(HistoryInformation historyInformation) {
-    }
+	public HistoryInformation getHistoryInformation() {
+		return null;
+	}
 
-    public boolean isVisible() {
-        return false;
-    }
+	public void setHistoryInformation(HistoryInformation historyInformation) {
+	}
 
-    public boolean hasOneVisibleChild() {
-        return false;
-    }
+	public boolean isVisible() {
+		return false;
+	}
 
-    public MindMap getMap() {
-        return null;
-    }
+	public boolean hasOneVisibleChild() {
+		return false;
+	}
 
-    public NodeAttributeTableModel getAttributes() {
-        return null;
-    }
+	public MindMap getMap() {
+		return null;
+	}
 
-    public void addTreeModelListener(TreeModelListener l) {
-    }
+	public NodeAttributeTableModel getAttributes() {
+		return null;
+	}
 
-    public void removeTreeModelListener(TreeModelListener l) {
-    }
+	public void addTreeModelListener(TreeModelListener l) {
+	}
 
-    public void insert(MutableTreeNode child, int index) {
-    }
+	public void removeTreeModelListener(TreeModelListener l) {
+	}
 
-    public void remove(int index) {
-    }
+	public void insert(MutableTreeNode child, int index) {
+	}
 
-    public void remove(MutableTreeNode node) {
-    }
+	public void remove(int index) {
+	}
 
-    public void setUserObject(Object object) {
-    }
+	public void remove(MutableTreeNode node) {
+	}
 
-    public void removeFromParent() {
-    }
+	public void setUserObject(Object object) {
+	}
 
-    public void setParent(MutableTreeNode newParent) {
-    }
+	public void removeFromParent() {
+	}
 
-    public TreeNode getChildAt(int childIndex) {
-        return null;
-    }
+	public void setParent(MutableTreeNode newParent) {
+	}
 
-    public int getChildCount() {
-        return 0;
-    }
+	public TreeNode getChildAt(int childIndex) {
+		return null;
+	}
 
-    public TreeNode getParent() {
-        return null;
-    }
+	public int getChildCount() {
+		return 0;
+	}
 
-    public int getIndex(TreeNode node) {
-        return 0;
-    }
+	public TreeNode getParent() {
+		return null;
+	}
 
-    public boolean getAllowsChildren() {
-        return false;
-    }
+	public int getIndex(TreeNode node) {
+		return 0;
+	}
 
-    public boolean isLeaf() {
-        return false;
-    }
+	public boolean getAllowsChildren() {
+		return false;
+	}
 
-    public Enumeration children() {
-        return null;
-    }
+	public boolean isLeaf() {
+		return false;
+	}
 
-    public String getXmlText() {
-        return null;
-    }
+	public Enumeration children() {
+		return null;
+	}
 
-    public void setXmlText(String structuredText) {
-    }
+	public String getXmlText() {
+		return null;
+	}
+
+	public void setXmlText(String structuredText) {
+	}
 
 	public String getXmlNoteText() {
 		// TODO Auto-generated method stub
@@ -399,62 +409,62 @@ final class TestMindMapNode implements MindMapNode {
 
 	public void setXmlNoteText(String structuredNoteText) {
 		// TODO Auto-generated method stub
-		
+
 	}
 
-    public List getChildren() {
-        return null;
-    }
+	public List getChildren() {
+		return null;
+	}
 
-    public String getNoteText() {
-        return null;
-    }
+	public String getNoteText() {
+		return null;
+	}
 
-    public void setNoteText(String noteText) {
-    }
+	public void setNoteText(String noteText) {
+	}
 
-    public Attribute getAttribute(int pPosition) {
-        return null;
-    }
+	public Attribute getAttribute(int pPosition) {
+		return null;
+	}
 
-    public List getAttributeKeyList() {
-        return null;
-    }
+	public List getAttributeKeyList() {
+		return null;
+	}
 
-    public int getAttributePosition(String key) {
-        return 0;
-    }
+	public int getAttributePosition(String key) {
+		return 0;
+	}
 
-    public void setAttribute(int pPosition, Attribute pAttribute) {
-    }
+	public void setAttribute(int pPosition, Attribute pAttribute) {
+	}
 
-    public int getAttributeTableLength() {
-        return 0;
-    }
+	public int getAttributeTableLength() {
+		return 0;
+	}
 
-    public void removeViewer(NodeView viewer) {
-        // TODO Auto-generated method stub
-        
-    }
+	public void removeViewer(NodeView viewer) {
+		// TODO Auto-generated method stub
 
-    public void acceptViewVisitor(NodeViewVisitor visitor) {
-        // TODO Auto-generated method stub
-        
-    }
+	}
 
-    public EventListenerList getListeners() {
-        // TODO Auto-generated method stub
-        return null;
-    }
+	public void acceptViewVisitor(NodeViewVisitor visitor) {
+		// TODO Auto-generated method stub
 
-    public boolean isNewChildLeft() {
-        // TODO Auto-generated method stub
-        return false;
-    }
+	}
+
+	public EventListenerList getListeners() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	public boolean isNewChildLeft() {
+		// TODO Auto-generated method stub
+		return false;
+	}
 
 	public void createAttributeTableModel() {
 		// TODO Auto-generated method stub
-		
+
 	}
 
 	public String getAttribute(String key) {
@@ -464,6 +474,26 @@ final class TestMindMapNode implements MindMapNode {
 
 	public boolean isWriteable() {
 		return true;
+	}
+
+	public boolean isChildOfOrEqual(MindMapNode pParentNode) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see freemind.modes.MindMapNode#removeAllHooks()
+	 */
+	public void removeAllHooks() {
+	}
+
+	/* (non-Javadoc)
+	 * @see freemind.modes.MindMapNode#sortedChildrenUnfolded()
+	 */
+	public ListIterator sortedChildrenUnfolded() {
+		return null;
 	}
 
 }

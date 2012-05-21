@@ -3,6 +3,7 @@
  */
 package plugins.script;
 
+import java.io.File;
 import java.io.PrintStream;
 import java.util.HashMap;
 import java.util.List;
@@ -20,6 +21,7 @@ import freemind.controller.actions.generated.instance.Pattern;
 import freemind.controller.actions.generated.instance.ScriptEditorWindowConfigurationStorage;
 import freemind.extensions.HookRegistration;
 import freemind.main.FreeMind;
+import freemind.main.FreeMindMain.StartupDoneListener;
 import freemind.main.HtmlTools;
 import freemind.main.Tools;
 import freemind.main.Tools.BooleanHolder;
@@ -32,7 +34,7 @@ import freemind.preferences.FreemindPropertyContributor;
 import freemind.preferences.layout.OptionPanel;
 
 public class ScriptingRegistration implements HookRegistration,
-		ExternalPatternAction {
+		ExternalPatternAction, StartupDoneListener {
 
 	private static final class ScriptingPluginPropertyContributor implements
 			FreemindPropertyContributor {
@@ -46,25 +48,33 @@ public class ScriptingRegistration implements HookRegistration,
 
 		public List getControls(TextTranslator pTextTranslator) {
 			Vector controls = new Vector();
-			controls
-					.add(new OptionPanel.NewTabProperty(
-							"plugins/scripting/tab_name"));
-			controls
-					.add(new SeparatorProperty(
-							"plugins/scripting/separatorPropertyName"));
-			controls.add(new BooleanProperty(FreeMind.RESOURCES_EXECUTE_SCRIPTS_WITHOUT_FILE_RESTRICTION+".tooltip",
+			controls.add(new OptionPanel.NewTabProperty(
+					"plugins/scripting/tab_name"));
+			controls.add(new SeparatorProperty(
+					"plugins/scripting/separatorPropertyName"));
+			controls.add(new BooleanProperty(
+					FreeMind.RESOURCES_EXECUTE_SCRIPTS_WITHOUT_FILE_RESTRICTION
+							+ ".tooltip",
 					FreeMind.RESOURCES_EXECUTE_SCRIPTS_WITHOUT_FILE_RESTRICTION));
-			controls.add(new BooleanProperty(FreeMind.RESOURCES_EXECUTE_SCRIPTS_WITHOUT_NETWORK_RESTRICTION+".tooltip",
+			controls.add(new BooleanProperty(
+					FreeMind.RESOURCES_EXECUTE_SCRIPTS_WITHOUT_NETWORK_RESTRICTION
+							+ ".tooltip",
 					FreeMind.RESOURCES_EXECUTE_SCRIPTS_WITHOUT_NETWORK_RESTRICTION));
-			controls.add(new BooleanProperty(FreeMind.RESOURCES_EXECUTE_SCRIPTS_WITHOUT_EXEC_RESTRICTION+".tooltip",
+			controls.add(new BooleanProperty(
+					FreeMind.RESOURCES_EXECUTE_SCRIPTS_WITHOUT_EXEC_RESTRICTION
+							+ ".tooltip",
 					FreeMind.RESOURCES_EXECUTE_SCRIPTS_WITHOUT_EXEC_RESTRICTION));
-			controls.add(new BooleanProperty(FreeMind.RESOURCES_SIGNED_SCRIPT_ARE_TRUSTED+".tooltip",
+			controls.add(new BooleanProperty(
+					FreeMind.RESOURCES_SIGNED_SCRIPT_ARE_TRUSTED + ".tooltip",
 					FreeMind.RESOURCES_SIGNED_SCRIPT_ARE_TRUSTED));
-			controls.add(new StringProperty(FreeMind.RESOURCES_SCRIPT_USER_KEY_NAME_FOR_SIGNING+".tooltip", FreeMind.RESOURCES_SCRIPT_USER_KEY_NAME_FOR_SIGNING));
+			controls.add(new StringProperty(
+					FreeMind.RESOURCES_SCRIPT_USER_KEY_NAME_FOR_SIGNING
+							+ ".tooltip",
+					FreeMind.RESOURCES_SCRIPT_USER_KEY_NAME_FOR_SIGNING));
 			return controls;
 		}
 	}
-	
+
 	private final class PatternScriptModel implements ScriptModel {
 
 		private String mScript;
@@ -79,8 +89,7 @@ public class ScriptingRegistration implements HookRegistration,
 				ScriptEditorPanel pPanel,
 				String pWindow_preference_storage_property) {
 			return (ScriptEditorWindowConfigurationStorage) controller
-					.decorateDialog(pPanel,
-							pWindow_preference_storage_property);
+					.decorateDialog(pPanel, pWindow_preference_storage_property);
 		}
 
 		public void endDialog(boolean pIsCanceled) {
@@ -89,9 +98,11 @@ public class ScriptingRegistration implements HookRegistration,
 			}
 		}
 
-		public boolean executeScript(int pIndex, PrintStream pOutStream, ErrorHandler pErrorHandler) {
+		public boolean executeScript(int pIndex, PrintStream pOutStream,
+				ErrorHandler pErrorHandler) {
 			return ScriptingEngine.executeScript(controller.getSelected(),
-					new BooleanHolder(true), mScript, controller, pErrorHandler, pOutStream, getScriptCookies());
+					new BooleanHolder(true), mScript, controller,
+					pErrorHandler, pOutStream, getScriptCookies());
 		}
 
 		public int getAmountOfScripts() {
@@ -135,7 +146,8 @@ public class ScriptingRegistration implements HookRegistration,
 	public ScriptingRegistration(ModeController controller, MindMap map) {
 		this.controller = (MindMapController) controller;
 		mMap = map;
-		ScriptingEngine.logger = controller.getFrame().getLogger(this.getClass().getName());
+		ScriptingEngine.logger = controller.getFrame().getLogger(
+				this.getClass().getName());
 	}
 
 	public void register() {
@@ -143,7 +155,8 @@ public class ScriptingRegistration implements HookRegistration,
 		mScriptEditorStarter = new ScriptEditorProperty.ScriptEditorStarter() {
 
 			public String startEditor(String pScriptInput) {
-				ScriptingEngine.logger.info("Start to edit script..."+pScriptInput);
+				ScriptingEngine.logger.info("Start to edit script..."
+						+ pScriptInput);
 				PatternScriptModel patternScriptModel = new PatternScriptModel(
 						pScriptInput);
 				ScriptEditorPanel scriptEditorPanel = new ScriptEditorPanel(
@@ -153,8 +166,10 @@ public class ScriptingRegistration implements HookRegistration,
 			}
 		};
 		controller.registerPlugin(mScriptEditorStarter);
-		mScriptingPluginPropertyContributor = new ScriptingPluginPropertyContributor(controller);
+		mScriptingPluginPropertyContributor = new ScriptingPluginPropertyContributor(
+				controller);
 		OptionPanel.addContributor(mScriptingPluginPropertyContributor);
+		controller.getFrame().registerStartupDoneListener(this);
 	}
 
 	public void deRegister() {
@@ -166,18 +181,43 @@ public class ScriptingRegistration implements HookRegistration,
 	public void act(MindMapNode node, Pattern pattern) {
 		if (pattern.getPatternScript() != null
 				&& pattern.getPatternScript().getValue() != null) {
-			ScriptingEngine.executeScript(node, new BooleanHolder(false),
-					HtmlTools.unescapeHTMLUnicodeEntity(pattern
-							.getPatternScript().getValue()), controller,
-					new ErrorHandler() {
-						public void gotoLine(int pLineNumber) {
-						}
-					}, System.out, getScriptCookies());
+			String scriptString = HtmlTools.toXMLUnescapedText(HtmlTools.unescapeHTMLUnicodeEntity(pattern
+					.getPatternScript().getValue()));
+			ScriptingEngine.logger.info("Executing script: " +scriptString);
+			executeScript(node, scriptString);
 		}
+	}
+
+	private void executeScript(MindMapNode node, String scriptString) {
+		ScriptingEngine.executeScript(node, new BooleanHolder(false),
+				scriptString, controller, new ErrorHandler() {
+					public void gotoLine(int pLineNumber) {
+					}
+				}, System.out, getScriptCookies());
 	}
 
 	public HashMap getScriptCookies() {
 		return mScriptCookies;
+	}
+
+	public void startupDone() {
+		/* Is there a startup groovy script? */
+		String startupScriptFile = System.getProperty("startup_groovy_script");
+		if (startupScriptFile != null && !startupScriptFile.isEmpty()) {
+			String expandFileName = Tools.expandFileName(startupScriptFile);
+			ScriptingEngine.logger.info("Starting script at " + expandFileName);
+			String scriptString = Tools.getFile(new File(expandFileName));
+			if (scriptString != null && !scriptString.isEmpty()) {
+				ScriptingEngine.logger.info("Starting script " + scriptString);
+				try {
+					executeScript(controller.getRootNode(), scriptString);
+				} catch (Exception e) {
+					freemind.main.Resources.getInstance().logException(e);
+				}
+			} else {
+				ScriptingEngine.logger.warning("Starting script not found!");
+			}
+		}
 	}
 
 }

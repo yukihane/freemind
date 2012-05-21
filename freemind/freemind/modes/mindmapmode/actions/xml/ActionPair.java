@@ -27,11 +27,12 @@ import freemind.controller.actions.generated.instance.XmlAction;
 
 /**
  * @author foltin
- *
+ * 
  */
 public class ActionPair {
 	private XmlAction doAction;
 	private XmlAction undoAction;
+
 	/**
 	 *
 	 */
@@ -50,6 +51,14 @@ public class ActionPair {
 	 */
 	public XmlAction getUndoAction() {
 		return undoAction;
+	}
+
+	public void setDoAction(XmlAction doAction) {
+		this.doAction = doAction;
+	}
+
+	public void setUndoAction(XmlAction undoAction) {
+		this.undoAction = undoAction;
 	}
 
 	public ActionPair reverse() {

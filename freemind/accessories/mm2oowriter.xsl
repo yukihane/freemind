@@ -215,7 +215,9 @@
 				</xsl:call-template>
 				<xsl:apply-templates select="hook|@LINK"/>
 				<xsl:call-template name="output-notecontent" />
-				<xsl:apply-templates select="node"/>
+				<xsl:apply-templates select="node[@POSITION='left']"/>
+				<xsl:apply-templates select="node[@POSITION='right']"/>
+				<xsl:apply-templates select="node[not(@POSITION)]"/>
 			</xsl:when>
 			<xsl:otherwise>
 				<xsl:choose>
@@ -228,7 +230,9 @@
 								</xsl:call-template>
 								<xsl:apply-templates select="hook|@LINK"/>
 								<xsl:call-template name="output-notecontent" />
-								<xsl:apply-templates select="node"/>
+								<xsl:apply-templates select="node[@POSITION='left']"/>
+								<xsl:apply-templates select="node[@POSITION='right']"/>
+								<xsl:apply-templates select="node[not(@POSITION)]"/>
 							</text:list-item>
 						</text:list>
 					</xsl:when>
@@ -246,9 +250,11 @@
 								<xsl:with-param name="style"></xsl:with-param>
 							</xsl:call-template>
 						</xsl:element>
-				<xsl:apply-templates select="hook|@LINK"/>
-				<xsl:call-template name="output-notecontent" />
-				<xsl:apply-templates select="node"/>
+						<xsl:apply-templates select="hook|@LINK"/>
+						<xsl:call-template name="output-notecontent" />
+						<xsl:apply-templates select="node[@POSITION='left']"/>
+						<xsl:apply-templates select="node[@POSITION='right']"/>
+						<xsl:apply-templates select="node[not(@POSITION)]"/>
 					</xsl:otherwise>
 				</xsl:choose>
 			</xsl:otherwise>

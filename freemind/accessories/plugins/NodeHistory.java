@@ -52,22 +52,24 @@ public class NodeHistory extends MindMapNodeHookAdapter {
 
 	/** Of NodeHolder */
 	private static Vector sNodeVector = new Vector();
-	
+
 	private static int sCurrentPosition = 0;
-	
+
 	private static boolean sPreventRegistration = false;
-	
+
 	private static class NodeHolder {
 		public String mNodeId;
 
 		public String mMapModuleName;
-		
+
 		public NodeHolder(MindMapNode pNode,
 				MindMapController pMindMapController) {
 			mNodeId = pNode.getObjectId(pMindMapController);
-			MapModule mapModule = getModuleGivenModeController(pMindMapController);
-			if(mapModule == null) {
-				throw new IllegalArgumentException("MapModule not present to controller " + pMindMapController);
+			MapModule mapModule = pMindMapController.getMapModule();
+			if (mapModule == null) {
+				throw new IllegalArgumentException(
+						"MapModule not present to controller "
+								+ pMindMapController);
 			}
 			mMapModuleName = mapModule.toString();
 		}
@@ -77,7 +79,7 @@ public class NodeHistory extends MindMapNodeHookAdapter {
 			ModeController modeController = getModeController(pController);
 			if (modeController != null) {
 				return modeController.getNodeFromID(mNodeId);
-			}			
+			}
 			return null;
 		}
 
@@ -86,7 +88,7 @@ public class NodeHistory extends MindMapNodeHookAdapter {
 			MapModule mapModule = getMapModule(pController);
 			if (mapModule != null) {
 				modeController = mapModule.getModeController();
-			}			
+			}
 			return modeController;
 		}
 
@@ -97,8 +99,7 @@ public class NodeHistory extends MindMapNodeHookAdapter {
 				String mapModuleName = (String) iter.next();
 				if (mapModuleName != null
 						&& mapModuleName.equals(mMapModuleName)) {
-					mapModule = (MapModule) mapModules
-							.get(mapModuleName);
+					mapModule = (MapModule) mapModules.get(mapModuleName);
 					break;
 				}
 			}
@@ -108,25 +109,11 @@ public class NodeHistory extends MindMapNodeHookAdapter {
 		public boolean isIdentical(MindMapNode pNode,
 				MindMapController pMindMapController) {
 			String id = pNode.getObjectId(pMindMapController);
-			MapModule mapModule = getModuleGivenModeController(pMindMapController);
+			MapModule mapModule = pMindMapController.getMapModule();
 			if (mapModule != null) {
 				return id.equals(mNodeId);
-			}			
-			return false;
-		}
-
-		private MapModule getModuleGivenModeController(MindMapController pMindMapController) {
-			MapModule mapModule = null;
-			for (Iterator iter = pMindMapController.getController()
-					.getMapModuleManager().getMapModules().entrySet()
-					.iterator(); iter.hasNext();) {
-				Map.Entry mapEntry = (Map.Entry) iter.next();
-				mapModule = (MapModule) mapEntry.getValue();
-				if (pMindMapController.equals(mapModule.getModeController())) {
-					break;
-				}
 			}
-			return mapModule;
+			return false;
 		}
 
 	}
@@ -147,27 +134,29 @@ public class NodeHistory extends MindMapNodeHookAdapter {
 		}
 
 		public void register() {
-			controller.registerNodeSelectionListener(this);
+			controller.registerNodeSelectionListener(this, false);
 		}
 
 		public void deRegister() {
 			controller.deregisterNodeSelectionListener(this);
 		}
 
-		public void onDeselectHook(NodeView pNode) {
+		public void onLostFocusNode(NodeView pNode) {
 		}
 
-		public void onSelectHook(NodeView pNode) {
+		public void onFocusNode(NodeView pNode) {
 			/*******************************************************************
 			 * don't denote positions, if somebody navigates through them. *
 			 */
 			if (!NodeHistory.sPreventRegistration) {
 				// no duplicates:
 				if (sCurrentPosition > 0
-						&& ((NodeHolder) sNodeVector.get(sCurrentPosition - 1)).isIdentical(pNode.getModel(), controller)) {
-//					logger.info("Avoid duplicate " + pNode + " at " + sCurrentPosition);
+						&& ((NodeHolder) sNodeVector.get(sCurrentPosition - 1))
+								.isIdentical(pNode.getModel(), controller)) {
+					// logger.info("Avoid duplicate " + pNode + " at " +
+					// sCurrentPosition);
 					return;
-				} 
+				}
 				if (sCurrentPosition != sNodeVector.size()) {
 					/***********************************************************
 					 * * we change the selected in the middle of our vector.
@@ -177,7 +166,7 @@ public class NodeHistory extends MindMapNodeHookAdapter {
 						sNodeVector.removeElementAt(i);
 					}
 				}
-//				logger.info("Adding " + pNode + " at " + sCurrentPosition);
+				// logger.info("Adding " + pNode + " at " + sCurrentPosition);
 				sNodeVector.add(new NodeHolder(pNode.getModel(), controller));
 				sCurrentPosition++;
 				// only the last 100 nodes
@@ -195,15 +184,22 @@ public class NodeHistory extends MindMapNodeHookAdapter {
 		}
 
 		public boolean isEnabled(JMenuItem pItem, Action pAction) {
-			String hookName = ((NodeHookAction)pAction).getHookName();
-		    if("accessories/plugins/NodeHistoryBack.properties".equals(hookName)){
-		    	// back is only enabled if there are already some nodes to go back ;-)
-		    	return sCurrentPosition>1;
-		    } else {
-		    	return sCurrentPosition < sNodeVector.size();
-	    	}
+			String hookName = ((NodeHookAction) pAction).getHookName();
+			if ("accessories/plugins/NodeHistoryBack.properties"
+					.equals(hookName)) {
+				// back is only enabled if there are already some nodes to go
+				// back ;-)
+				return sCurrentPosition > 1;
+			} else {
+				return sCurrentPosition < sNodeVector.size();
+			}
 		}
 
+		/* (non-Javadoc)
+		 * @see freemind.modes.ModeController.NodeSelectionListener#onSelectionChange(freemind.modes.MindMapNode, boolean)
+		 */
+		public void onSelectionChange(NodeView pNode, boolean pIsSelected) {
+		}
 
 	}
 
@@ -219,7 +215,7 @@ public class NodeHistory extends MindMapNodeHookAdapter {
 		final Registration registration = (Registration) getPluginBaseClass();
 		final MindMapController modeController = getMindMapController();
 		String direction = getResourceString("direction");
-//		logger.info("Direction: " + direction);
+		// logger.info("Direction: " + direction);
 		if ("back".equals(direction)) {
 			if (sCurrentPosition > 1) {
 				--sCurrentPosition;
@@ -236,18 +232,18 @@ public class NodeHistory extends MindMapNodeHookAdapter {
 		}
 		if (sCurrentPosition == 0)
 			return;
-//		printVector();
+		// printVector();
 		NodeHolder nodeHolder = (NodeHolder) sNodeVector
-						.get(sCurrentPosition - 1);
+				.get(sCurrentPosition - 1);
 		final Controller mainController = getController().getController();
 		final MindMapNode toBeSelected = (nodeHolder).getNode(mainController);
 		boolean changeModule = false;
 		MapModule newModule = null;
-		if(nodeHolder.getModeController(mainController) != getMindMapController()){
+		if (nodeHolder.getModeController(mainController) != getMindMapController()) {
 			changeModule = true;
 			newModule = nodeHolder.getMapModule(mainController);
-			if(newModule ==  null) {
-				// the map was apparently closed, we try with the next node. 
+			if (newModule == null) {
+				// the map was apparently closed, we try with the next node.
 				invoke(node);
 				return;
 			}
@@ -264,10 +260,12 @@ public class NodeHistory extends MindMapNodeHookAdapter {
 		EventQueue.invokeLater(new Runnable() {
 			public void run() {
 				ModeController c = modeController;
-				if(fChangeModule){
-					boolean res = mainController.getMapModuleManager().changeToMapModule(fNewModule.toString());
-					if(!res){
-						logger.warning("Can't change to map module " + fNewModule);
+				if (fChangeModule) {
+					boolean res = mainController.getMapModuleManager()
+							.changeToMapModule(fNewModule.toString());
+					if (!res) {
+						logger.warning("Can't change to map module "
+								+ fNewModule);
 						sPreventRegistration = false;
 						return;
 					}
@@ -275,7 +273,7 @@ public class NodeHistory extends MindMapNodeHookAdapter {
 				}
 				if (!toBeSelected.isRoot()) {
 					c.setFolded(toBeSelected.getParentNode(), false);
-				}				
+				}
 				NodeView nodeView = c.getNodeView(toBeSelected);
 				if (nodeView != null) {
 					c.select(nodeView);
@@ -290,11 +288,13 @@ public class NodeHistory extends MindMapNodeHookAdapter {
 		int i = 0;
 		for (Iterator iter = sNodeVector.iterator(); iter.hasNext();) {
 			NodeHolder holder = (NodeHolder) iter.next();
-			sb.append(((sCurrentPosition-1 == i)?"==>":"   ") + "Node pos " + i + " is " + holder.getNode(getMindMapController().getController()) );
+			sb.append(((sCurrentPosition - 1 == i) ? "==>" : "   ")
+					+ "Node pos " + i + " is "
+					+ holder.getNode(getMindMapController().getController()));
 			sb.append("\n");
 			i++;
 		}
-		logger.info(sb.toString()+"\n");
+		logger.info(sb.toString() + "\n");
 	}
 
 }

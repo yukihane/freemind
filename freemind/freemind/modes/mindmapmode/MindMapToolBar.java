@@ -21,133 +21,211 @@
 package freemind.modes.mindmapmode;
 
 import java.awt.Component;
-import java.awt.Dimension;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 
 import javax.swing.Action;
 import javax.swing.JComboBox;
-import javax.swing.JComponent;
-import javax.swing.JScrollPane;
 import javax.swing.JToolBar;
 import javax.swing.plaf.basic.BasicComboBoxEditor;
 
+import freemind.controller.Controller;
 import freemind.controller.FreeMindToolBar;
 import freemind.controller.StructuredMenuHolder;
+import freemind.controller.ZoomListener;
 import freemind.main.Tools;
 
+public class MindMapToolBar extends FreeMindToolBar implements ZoomListener {
 
-public class MindMapToolBar extends FreeMindToolBar {
+	private static final String[] sizes = { "8", "10", "12", "14", "16", "18",
+			"20", "24", "28" };
+	private MindMapController c;
+	private JComboBox fonts, size;
+	private JAutoScrollBarPane iconToolBarScrollPane;
+	private JToolBar iconToolBar;
+	private boolean fontSize_IgnoreChangeEvent = false;
+	private boolean fontFamily_IgnoreChangeEvent = false;
+	private ItemListener fontsListener;
+	private ItemListener sizeListener;
+	private JComboBox zoom;
+	private String userDefinedZoom;
 
-    private static final String[] sizes = {"8","10","12","14","16","18","20","24","28"};
-    private MindMapController c;
-    private JComboBox fonts, size;
-    private JAutoScrollBarPane iconToolBarScrollPane;    
-    private JToolBar iconToolBar;    
-    private boolean fontSize_IgnoreChangeEvent = false;
-    private boolean fontFamily_IgnoreChangeEvent = false;
-    private ItemListener fontsListener;
-    private ItemListener sizeListener;
-
-    public MindMapToolBar(MindMapController controller) {
+	protected static java.util.logging.Logger logger = null;
+	
+	public MindMapToolBar(MindMapController controller) {
 		super();
-		this.c=controller;
-        this.setRollover(true);
+		this.c = controller;
+		if (logger == null) {
+			logger = freemind.main.Resources.getInstance().getLogger(
+					this.getClass().getName());
+		}
+		this.setRollover(true);
 		fonts = new JComboBox(Tools.getAvailableFontFamilyNamesAsVector());
 		fonts.setFocusable(false);
 		size = new JComboBox(sizes);
 		size.setFocusable(false);
 		iconToolBar = new FreeMindToolBar();
 		iconToolBarScrollPane = new JAutoScrollBarPane(iconToolBar);
-        iconToolBar.setOrientation(JToolBar.VERTICAL);
-        iconToolBar.setRollover(true);
-        iconToolBarScrollPane.getVerticalScrollBar().setUnitIncrement(100);
-		fontsListener = new ItemListener(){
-        	        public void itemStateChanged(ItemEvent e) {
-        	            if (e.getStateChange() != ItemEvent.SELECTED) {
-        	               return; }
-        	            // TODO: this is super-dirty, why doesn't the toolbar know the model?
-        	            if (fontFamily_IgnoreChangeEvent) {
-        	               //fc, 27.8.2004: I don't understand, why the ignore type is resetted here. 
-        	                // let's see: fontFamily_IgnoreChangeEvent = false;
-        	               return; }
-        	            fontFamily_IgnoreChangeEvent = true;
-        	            c.fontFamily.actionPerformed((String)e.getItem());
-        	            fontFamily_IgnoreChangeEvent = false;
-        	         }
-        	      };
+		iconToolBar.setOrientation(JToolBar.VERTICAL);
+		iconToolBar.setRollover(true);
+		iconToolBarScrollPane.getVerticalScrollBar().setUnitIncrement(100);
+		fontsListener = new ItemListener() {
+			public void itemStateChanged(ItemEvent e) {
+				if (e.getStateChange() != ItemEvent.SELECTED) {
+					return;
+				}
+				// TODO: this is super-dirty, why doesn't the toolbar know the
+				// model?
+				if (fontFamily_IgnoreChangeEvent) {
+					// fc, 27.8.2004: I don't understand, why the ignore type is
+					// resetted here.
+					// let's see: fontFamily_IgnoreChangeEvent = false;
+					return;
+				}
+				fontFamily_IgnoreChangeEvent = true;
+				c.fontFamily.actionPerformed((String) e.getItem());
+				fontFamily_IgnoreChangeEvent = false;
+			}
+		};
 		fonts.addItemListener(fontsListener);
-        sizeListener = new ItemListener(){
-            public void itemStateChanged(ItemEvent e) {
-                //System.err.println("ce:"+e);
-                if (e.getStateChange() != ItemEvent.SELECTED) {
-                   return; }
-                // change the font size                 
-                // TODO: this is super-dirty, why doesn't the toolbar know the model?
-                if (fontSize_IgnoreChangeEvent) {
-                    //fc, 27.8.2004: I don't understand, why the ignore type is resetted here. 
-                    // let's see: fontSize_IgnoreChangeEvent = false;
-                   return; 
-                }
-                // call action:
-                c.fontSize.actionPerformed((String) e.getItem());
-             }
-          };
+		sizeListener = new ItemListener() {
+			public void itemStateChanged(ItemEvent e) {
+				// System.err.println("ce:"+e);
+				if (e.getStateChange() != ItemEvent.SELECTED) {
+					return;
+				}
+				// change the font size
+				// TODO: this is super-dirty, why doesn't the toolbar know the
+				// model?
+				if (fontSize_IgnoreChangeEvent) {
+					// fc, 27.8.2004: I don't understand, why the ignore type is
+					// resetted here.
+					// let's see: fontSize_IgnoreChangeEvent = false;
+					return;
+				}
+				// call action:
+				c.fontSize.actionPerformed((String) e.getItem());
+			}
+		};
 		size.addItemListener(sizeListener);
-    }
-    
-    public void update(StructuredMenuHolder holder) {
+		userDefinedZoom = controller.getText("user_defined_zoom");
+
+		zoom = new JComboBox(controller.getController().getZooms());
+		zoom.setSelectedItem("100%");
+		zoom.addItem(userDefinedZoom);
+		// Focus fix.
+		zoom.setFocusable(false);
+		zoom.addItemListener(new ItemListener() {
+			public void itemStateChanged(ItemEvent e) {
+				// todo: dialog with user zoom value, if user zoom is chosen.
+				// change proposed by dimitri:
+				if (e.getStateChange() == ItemEvent.SELECTED) {
+					setZoomByItem(e.getItem());
+				}
+			}
+		});
+
+	}
+
+	private void setZoomByItem(Object item) {
+		if (((String) item).equals(userDefinedZoom))
+			return;
+		String dirty = (String) item;
+		String cleaned = dirty.substring(0, dirty.length() - 1);
+		// change representation ("125" to 1.25)
+		float zoomValue = Float.parseFloat(cleaned) / 100F; // nothing to do...
+		// remove '%' sign
+		getController().setZoom(zoomValue);
+	}
+
+	protected Controller getController() {
+		return c.getController();
+	}
+	
+	public void update(StructuredMenuHolder holder) {
 		this.removeAll();
 		holder.updateMenus(this, "mindmapmode_toolbar/");
 
+		add(zoom);
+
 		fonts.setMaximumRowCount(9);
 		add(fonts);
-	
+
 		size.setEditor(new BasicComboBoxEditor());
 		size.setEditable(true);
 		add(size);
-        
-        // button tool bar.
-        iconToolBar.removeAll();
-        iconToolBar.add(c.removeLastIconAction);
-        iconToolBar.add(c.removeAllIconsAction);
-        iconToolBar.addSeparator();
-        for(int i = 0; i < c.iconActions.size(); ++i) {
-            iconToolBar.add((Action) c.iconActions.get(i));
-        }
-   }
 
-   // Daniel Polansky: both the following methods trigger item listeners above.
-   // Those listeners obtain two events: first DESELECTED and then
-   // SELECTED. Both events are to be ignored - we don't want to update
-   // a node with its own font. The item listeners should react only
-   // to a user change, not to our change.
+		// button tool bar.
+		iconToolBar.removeAll();
+		iconToolBar.add(c.removeLastIconAction);
+		iconToolBar.add(c.removeAllIconsAction);
+		iconToolBar.addSeparator();
+		for (int i = 0; i < c.iconActions.size(); ++i) {
+			iconToolBar.add((Action) c.iconActions.get(i));
+		}
+	}
 
-   public void selectFontSize(String fontSize) // (DiPo)
-   {
-      fontSize_IgnoreChangeEvent = true;
-      size.setSelectedItem(fontSize);
-      fontSize_IgnoreChangeEvent = false;
-   }
+	// Daniel Polansky: both the following methods trigger item listeners above.
+	// Those listeners obtain two events: first DESELECTED and then
+	// SELECTED. Both events are to be ignored - we don't want to update
+	// a node with its own font. The item listeners should react only
+	// to a user change, not to our change.
 
-   Component getLeftToolBar() {
-       return iconToolBarScrollPane;
-   }
-   
-   public void selectFontName(String fontName) // (DiPo)
-   {
-	   if (fontFamily_IgnoreChangeEvent) {
-		   return; 
-	   }
-	   fontFamily_IgnoreChangeEvent = true;
-	   fonts.setEditable(true);
-	   fonts.setSelectedItem(fontName) ;
-	   fonts.setEditable(false);
-	   fontFamily_IgnoreChangeEvent = false;
-   }
-    
-    void setAllActions(boolean enabled) {
-	fonts.setEnabled(enabled);
-	size.setEnabled(enabled);
-    }
+	public void selectFontSize(String fontSize) // (DiPo)
+	{
+		fontSize_IgnoreChangeEvent = true;
+		size.setSelectedItem(fontSize);
+		fontSize_IgnoreChangeEvent = false;
+	}
+
+	Component getLeftToolBar() {
+		return iconToolBarScrollPane;
+	}
+
+	public void selectFontName(String fontName) // (DiPo)
+	{
+		if (fontFamily_IgnoreChangeEvent) {
+			return;
+		}
+		fontFamily_IgnoreChangeEvent = true;
+		fonts.setEditable(true);
+		fonts.setSelectedItem(fontName);
+		fonts.setEditable(false);
+		fontFamily_IgnoreChangeEvent = false;
+	}
+
+	void setAllActions(boolean enabled) {
+		fonts.setEnabled(enabled);
+		size.setEnabled(enabled);
+	}
+
+	/* (non-Javadoc)
+	 * @see freemind.controller.ZoomListener#setZoom(float)
+	 */
+	public void setZoom(float f) {
+		logger.fine("setZoomComboBox is called with " + f + ".");
+		String toBeFound = getItemForZoom(f);
+		for (int i = 0; i < zoom.getItemCount(); ++i) {
+			if (toBeFound.equals((String) zoom.getItemAt(i))) {
+				// found
+				zoom.setSelectedItem(toBeFound);
+				return;
+			}
+		}
+		zoom.setSelectedItem(userDefinedZoom);
+		
+	}
+	
+	private String getItemForZoom(float f) {
+		return (int) (f * 100F) + "%";
+	}
+
+	public void startup() {
+		getController().registerZoomListener(this);
+	}
+		
+	public void shutdown() {
+		getController().deregisterZoomListener(this);
+	}
+
 }

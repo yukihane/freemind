@@ -16,6 +16,7 @@
 	<property name="src" location="."/>
 	<property name="src_base_for_post" location="../" />
 	<property name="build" location="../bin/classes" />
+	<property name="testbuild" location="../bin/testclasses" />
 	<property name="acc_build" location="accessories/plugins/build.xml" />
 	<property name="dist" location="../bin/dist" />
 	<property name="dist.lib" location="${dist}/lib" />
@@ -28,6 +29,7 @@
 	<property name="dist_macos_info" location="${dist_macos_contents}/Info.plist"/>
 	<property name="icns_extension" value="Modern"/>
 	<property name="FM.jar" location="${dist.lib}/freemind.jar"/>
+	<property name="test.reports" location="../bin/reports/" />
 	<property name="post" location="../post" />
 	<property name="debug" value="on" />
 	<property name="java_source_version" value="1.4" />
@@ -48,8 +50,16 @@
 	<taskdef name="bind" classname="org.jibx.binding.ant.CompileTask">
 		<classpath path="${jibxlibs}"/>
 	</taskdef>
+	<property name="formsLib" location="lib/forms-1.0.5.jar:lib/SimplyHTML/SimplyHTML.jar"/>
+	<property name="simplyHtml" location="lib/SimplyHTML/SimplyHTML.jar"/>
+	<property name="spellLib" location="lib/jortho.jar"/>
 
-	<property name="classpath" value="${jibxruntimelibs}:${jibxjar}:lib/forms-1.0.5.jar:lib/SimplyHTML/SimplyHTML.jar"/>
+	<property name="classpath" value="${jibxruntimelibs}:${jibxjar}:${formsLib}:${simplyHtml}:${spellLib}"/>
+	<path id="jars.path">
+	  <fileset dir="${src}">
+	    <include name="**/*.jar" />
+	  </fileset>
+	</path>
 
 	  <target name="xmlbind.checkStatusOfGeneration">
 	    <uptodate property="xmlbind.isUpToDate"
@@ -117,6 +127,8 @@
 		</jar>
 		<delete dir="binding">
 		</delete>
+		<delete failonerror="false" file="${src}/accessories/plugins/MacChanges.java" quiet="true"/>
+		<delete failonerror="false" file="${src}/accessories/plugins/MacChanges.xml" quiet="true"/>
 	</target>
 
 	<target name="patterns">
@@ -162,12 +174,52 @@
 		<ant antfile="plugins/build.xml" target="build"/>
 	</target>
 
-	<target name="dist" depends="jar, browser">
+	<target name="build_tests" depends="build">
+		<mkdir dir="${testbuild}"/>
+		<javac includeantruntime="false" srcdir="${src}"
+			destdir="${testbuild}"
+			debug="${debug}"
+		    	source="${java_source_version}"
+	       		target="${java_target_version}"
+		>
+			<classpath refid="jars.path"></classpath>
+			<exclude name="${gen.dir}/**" />
+		</javac>
+		<copy todir="${testbuild}" file="${src}/freemind.properties"/>
+	</target>
 
+	<!-- ================================= 
+          target: test              
+         ================================= -->
+    <target name="test" depends="build_tests" description="Carries out all unit tests">
+	<delete dir="${test.reports}" />
+     	<mkdir dir="${test.reports}" />
+     	<junit printsummary="withOutAndErr"  fork="yes" haltonfailure="no">        
+		<classpath refid="jars.path"></classpath>
+		<classpath path="${testbuild}"></classpath>
+		<classpath path="${src}"></classpath>
+ 		<formatter type="xml" />
+ 
+		<batchtest todir="${test.reports}">
+			<fileset dir="${src}"> 
+				<include name="tests/**/AllTests.java" />
+     			</fileset>
+ 		</batchtest>
+     	</junit>
+    </target>
+
+	
+	<target name="dist" depends="jar, browser">
 		<copy todir="${dist}">
-			<fileset dir="${src}"
-				includes="freemind.bat,freemind.sh,license,patterns.xml"
-			/>
+			<fileset dir="${src}">
+				  <include name="freemind.bat"/>
+				  <include name="freemindw.bat"/>
+				  <include name="freemind.sh"/>
+				  <include name="license"/>
+				  <include name="patterns.xml"/>
+				  <include name="dictionaries.properties"/>
+				  <include name="dictionary_??.ortho"/>
+			</fileset>
 		</copy>
 		<chmod file="${dist}/freemind.sh" perm="u+rx"/>
 		<copy todir="${dist}">
@@ -194,6 +246,7 @@
 		<mkdir dir="${dist.lib}" />
 		<copy todir="${dist.lib}">
 			<fileset dir="${src}/lib">
+				<include name="jortho.jar"/>
 				<include name="forms-1.0.5.jar"/>
 				<include name="bindings.jar"/>
 				<include name="jibx/jibx-run.jar"/>
@@ -221,7 +274,7 @@
 	</target>
 
 	<target name="dist_macos" if="isMacOs">
-		<delete dir="${dist_macos}"/>
+		<delete dir="${dist_macos}" followsymlinks="false"/>
 		<mkdir dir="${dist_macos}"/>
 		<!-- change freemind.properties -->
 		<copy todir="${dist_macos}" file="${src}/freemind.properties"/>
@@ -252,7 +305,6 @@
 		  				    >
 			<jarfileset dir="${dist}">
 				<include name="**/*.jar" />
-				<exclude name="**/CVS" />
 				<exclude name="accessories/**" />
 				<exclude name="plugins/**" />
 				<exclude name="browser/**" />
@@ -262,7 +314,7 @@
 		<copy todir="${dist_macos_contents}/Resources">
 			<fileset dir="${src}/images">
 				<include name="FreeMindWindowIconModern-MM.icns"/>
-			</fileset>		
+			</fileset>
 		</copy>
 		<copy todir="${dist_macos_contents}/Resources/Java">
 			<fileset dir="${dist}">
@@ -272,6 +324,7 @@
 				<include name="plugins/*" />
 				<include name="plugins/**/*" />
 				<include name="doc/*" />
+				<include name="dictionar*" />
 			</fileset>
 		</copy>
 		<!-- Associate Freemind with mm -->
@@ -282,7 +335,17 @@
 			  tofile="${dist_macos_info}"/>
 		<!-- Done. -->
 	</target>
-
+	
+	<!-- installs the application directly on this mac. -->
+	<target name="install_macos" if="isMacOs" depends="dist">
+		<!-- Remove old application via move -->
+		<delete dir="/Applications/FreeMind.app" failonerror="off"/>
+		<exec dir="." executable="mv" os="Mac OS X">
+			<arg path="${dist_macos_app}"/>
+			<arg path="/Applications"/>
+		</exec>
+	</target>
+	
 	<target name="post" depends="dist,browser">
 		<mkdir dir="${post}" />
 <!--		<tar tarfile="${post}/freemind-bin.tar"
@@ -326,23 +389,28 @@
 
 	<target name="post_macos" if="isMacOs">
 
-		<exec dir="." executable="zsh" os="Mac OS X">
-			<arg value="./mkdmg.sh"/>
-			<arg path="${dist_macos_app}"/>
+		<copy todir="${dist_macos}" verbose="true">
+			<fileset dir="../admin/installer/mac/dmg/">
+			    <include name=".VolumeIcon.icns"/>
+			</fileset>
+			<fileset dir="../admin/installer/mac/QuickLook/build/Debug/">
+			    <include name="**"/>
+			</fileset>
+		</copy>
+		<chmod perm="ugo+rx" file="${dist_macos}/FreemindQL.qlgenerator/Contents/MacOS/FreemindQL" verbose="true"/>
+		<exec executable="cp">
+		  <arg value="../admin/installer/mac/dmg/.DS_Store"/>
+		  <arg value="${dist_macos}"/>
 		</exec>
-		<exec dir="." executable="mv" os="Mac OS X">
-			<arg path="/tmp/${dist_macos_app_name} Archive.dmg"/>
-			<arg path="${post}/${dist_macos_name}_MAC_OSX_10.5_Rosetta.dmg"/>
+		<exec executable="ln">
+		  <arg line="-s /Library/QuickLook"/>
+		  <arg value="${dist_macos}"/>
+		</exec>
+		<exec executable="ln">
+		  <arg line="-s /Applications"/>
+		  <arg value="${dist_macos}"/>
 		</exec>
 
-		<!-- Delete the JavaApplicationStub and replace it with a symbolic link -->
-		  <!--   which should work on older and future versions of OS X
-		   Taken from http://informagen.com/JarBundler/StubFile.html   
-
-			fc, 22.10.2009,  as people reported problems with this, we make two versions.
-			http://sourceforge.net/forum/message.php?msg_id=5324833
-         -->
-			
 		<delete file="${dist_macos_contents}/MacOS/JavaApplicationStub"/>
 		<exec executable="ln">
 		  <arg line="-s /System/Library/Frameworks/JavaVM.framework/Resources/MacOS/JavaApplicationStub"/>
@@ -351,13 +419,19 @@
 
 		<exec dir="." executable="zsh" os="Mac OS X">
 			<arg value="./mkdmg.sh"/>
-			<arg path="${dist_macos_app}"/>
+			<arg path="${dist_macos}"/>
 		</exec>
 		<exec dir="." executable="mv" os="Mac OS X">
-			<arg path="/tmp/${dist_macos_app_name} Archive.dmg"/>
+			<arg path="/tmp/${dist_macos_name} Archive.dmg"/>
 			<arg path="${post}/${dist_macos_name}.dmg"/>
 		</exec>
 
+		<exec executable="rm">
+		  <arg value="${dist_macos}/QuickLook"/>
+		</exec>
+		<exec executable="rm">
+		  <arg value="${dist_macos}/Applications"/>
+		</exec>
 
 		
 	</target>
@@ -382,6 +456,7 @@
 				<include name="Resources*"/>
 				<include name="mindmap_menus.xml"/>
 				<include name="**/freemind_version_updater.xslt"/>
+				<include name="dictionar*"/>
 			</fileset>
 		</jar>
 		<ant antfile="${acc_build}" target="jar"/>
@@ -476,6 +551,7 @@
 				<!--<pathelement location="${dist}"/>-->
 				<pathelement location="${FM.jar}"/>
 				<pathelement location="${jibxjar}"/>
+				<pathelement location="${spellLib}"/>
 				<pathelement path="${jibxruntimelibs}"/>
 			</classpath>
 		</java>
@@ -626,7 +702,7 @@
     		<arg value="${gitRoot}"/>
     		<arg value="${inst.dir}/"/>
     	</exec>            
-
+		<copy todir="${inst.dir}/freemind" file="${freemind.buildnumber.file}"></copy>
     	<ant dir="${inst.dir}/freemind" target="post" inheritall="false"></ant>
     	<copy todir="${inst.dest.dir}">
     		<fileset dir="${inst.dir}/post">

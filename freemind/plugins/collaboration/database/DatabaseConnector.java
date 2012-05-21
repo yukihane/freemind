@@ -38,7 +38,7 @@ import freemind.modes.mindmapmode.MindMapController;
  * @author foltin
  * 
  */
-public class DatabaseConnector extends DatabaseBasics  {
+public class DatabaseConnector extends DatabaseBasics {
 
 	private static final String HOST_PROPERTY = "plugins.collaboration.database.host";
 
@@ -51,10 +51,12 @@ public class DatabaseConnector extends DatabaseBasics  {
 		MindMapController controller = getMindMapController();
 		try {
 			DatabaseConnectionHook connectionHook = isConnected();
-			if (connectionHook!= null) {
+			if (connectionHook != null) {
 				// I'm already present, so remove me.
 				logger.info("Deregister filter, so that the hook isn't reported to the database.");
-				connectionHook.getUpdateThread().deregisterFilter();
+				UpdateThread updateThread = connectionHook.getUpdateThread();
+				updateThread.deregisterFilter();
+				updateThread.removeUser();
 				logger.info("Shutting down the permanent hook.");
 				togglePermanentHook(controller);
 				return;
@@ -62,10 +64,11 @@ public class DatabaseConnector extends DatabaseBasics  {
 			logger.info("Connect...");
 			Class.forName("org.hsqldb.jdbcDriver");
 			StringProperty passwordProperty = new StringProperty(
-					"The password needed to connect", "Password");
-			StringProperty hostProperty = new StringProperty(
-					"The host to connect to (IP or name possible)", "Host");
+					PASSWORD_DESCRIPTION, PASSWORD);
+			StringProperty hostProperty = new StringProperty(HOST_DESCRIPTION,
+					HOST);
 			NumberProperty portProperty = getPortProperty();
+			// get last value
 			hostProperty.setValue(controller.getFrame().getProperty(
 					HOST_PROPERTY));
 			Vector controls = new Vector();
@@ -77,13 +80,18 @@ public class DatabaseConnector extends DatabaseBasics  {
 			if (!dialog.isSuccess())
 				return;
 			setPortProperty(portProperty);
+			// store value for next time.
 			controller.getFrame().setProperty(HOST_PROPERTY,
 					hostProperty.getValue());
 			String password = passwordProperty.getValue();
-			Connection connection = DriverManager.getConnection("jdbc:hsqldb:hsql://"
-					+ hostProperty.getValue() + ":" + portProperty.getValue() + "/xdb", "sa", password);
+			Connection connection = DriverManager.getConnection(
+					"jdbc:hsqldb:hsql://" + hostProperty.getValue() + ":"
+							+ portProperty.getValue() + "/xdb", "sa", password);
 			logger.info("Starting update thread...");
 			mUpdateThread = new UpdateThread(connection, controller);
+			mUpdateThread.setPort(portProperty.getValue());
+			mUpdateThread.setHost(hostProperty.getValue());
+			mUpdateThread.insertUser();
 			mUpdateThread.start();
 		} catch (Exception e) {
 			freemind.main.Resources.getInstance().logException(e);
@@ -94,9 +102,9 @@ public class DatabaseConnector extends DatabaseBasics  {
 	}
 
 	private DatabaseConnectionHook isConnected() {
-		Collection activatedHooks = getMindMapController().getRootNode().getActivatedHooks();
-		for (Iterator it = activatedHooks.iterator(); it
-				.hasNext();) {
+		Collection activatedHooks = getMindMapController().getRootNode()
+				.getActivatedHooks();
+		for (Iterator it = activatedHooks.iterator(); it.hasNext();) {
 			PermanentNodeHook hook = (PermanentNodeHook) it.next();
 			if (hook instanceof DatabaseConnectionHook) {
 				return (DatabaseConnectionHook) hook;
@@ -104,7 +112,9 @@ public class DatabaseConnector extends DatabaseBasics  {
 		}
 		return null;
 	}
-	
 
+	public Integer getRole() {
+		return ROLE_SLAVE;
+	}
 
 }

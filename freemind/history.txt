@@ -1,4 +1,124 @@
 ===============================
+Changes made in FreeMind 1.0.0 Beta3
+===============================
+* FIX: Scripts in Patterns should work now.
+* NEW: In the new search dialog, folded nodes can be hidden.
+* NEW: Purging of old tile images in cache added
+* FIX: Clone functionality in combination with the automatic layout.
+* CHANGE: In new search (& replace) dialog, sorting is case insensitive.
+* FIX: Undo for paste actions
+
+===============================
+Changes made in FreeMind 1.0.0 Beta2
+===============================
+* Search positions are displayed in map in red.
+* Export of multiple nodes as PDF (for each node, there will be one separate PDF) possible.
+* FIX: Toolbar can be hidden
+* Time management: menu added and a method for journals: make new node with current date.
+* FIX: Text based exports are using the correct order for the first level nodes.
+* NEW: If you have addresses as nodes, these can be displayed on the osm-maps very quickly
+* NEW: Find as you type: if you type an address to search for in the geographical map view, 
+  the find window is opened. 
+* NEW: Menu item to display current log file added.
+* NEW: Added support for osm's new transport map
+* NEW: Added support for osm's new MapQuest.Open map
+ 
+===============================
+Changes made in FreeMind 1.0.0 Beta1
+===============================
+* Bug fix for Problem with greek text inside long nodes after upgrading - ID: 3432919, http://sourceforge.net/tracker/?func=detail&aid=3432919&group_id=7118&atid=107118 
+* New feature: add link to osm.org webpage to node for locations.
+* New status bar for geographical maps: 
+  * hierarchy of nodes are displayed on holding the mouse over a node
+  * distance between cursor and mouse if not a node is below the mouse
+* New language bulgarian. Thanks to the author vii!
+* Reorganized popup menu: new node, copy as link, maximal zoom actions.
+* Multiple selection with rectangle possible at geographical view (press shift before left mouse click)
+* Received agreement from Mapnik server admins to use openstreetmap-tiles, user agent set as requested.
+
+===============================
+Changes made in FreeMind 1.0.0 Alpha8
+===============================
+* Fixed https://sourceforge.net/projects/freemind/forums/forum/22102/topic/4801690
+* Added spell checking. Thanks to the author Eicke.
+* Map positions store its map-source
+* Fixed "Jump to last edit location" in combination with automatic layout.
+* Map: cursor movements added.
+* Search bar added.
+* Patch: filter by "not containing icon", https://sourceforge.net/tracker/?func=detail&atid=307118&aid=3442896&group_id=7118, Thanks to the author!
+* Patch: File > Open should behave like File > Most Recent Files * https://sourceforge.net/tracker/?func=detail&atid=307118&aid=2975476&group_id=7118, Thanks to the author!
+* Added property and functionality: folded nodes are hidden from map view.
+* Change map position with drag&drop.
+* Added map actions to node's context menu. 
+* Added quick look plugin to Mac installer (drop it to the library)
+
+===============================
+Changes made in FreeMind 1.0.0 Alpha7
+===============================
+* Change of root node added
+* Now, find treats notes, too.
+* Paste as plain text added: you get a single node with the copied text as the paste result.
+* Option added to avoid tooltips for notes. (https://sourceforge.net/projects/freemind/forums/forum/320014/topic/4777695)
+* Initial map support added
+* Tile Cache can be chosen via properties (tile_cache_class).
+
+
+===============================
+Changes made in FreeMind 1.0.0 Alpha6
+===============================
+* Opening documents from explorer will open it in a running instance.
+* Export format for PDF can be chosen. Thanks to the author Andreas for the patch.
+* New functionality: "File changed on disk: do you want to reload?" 
+* New functionality: Paste images from clipboard. Thanks to Anantha!
+* Accelerators for search&replace. (Translators: add accelerators in your language to use this function!).
+* Headless export to png added. Usage: java -cp lib/freemind.jar freemind.view.mindmapview.IndependantMapViewCreator <map_path>.mm <picture_path>.png
+
+
+===============================
+Changes made in FreeMind 1.0.0 Alpha5
+===============================
+* Fixed browser for 1.0.0
+* Changed the change map shortcuts to something more familiar (eg. from firefox) with control page up/down.
+* Move tab functionality added.
+* Fixed translation of export xslt dialog http://sourceforge.net/tracker/?func=detail&atid=107118&aid=3308701&group_id=7118
+* Patch https://sourceforge.net/tracker/?func=detail&aid=1909107&group_id=7118&atid=307118 integrated. Thanks to the author!
+* Patch https://sourceforge.net/tracker/?func=detail&aid=2973357&group_id=7118&atid=307118 integrated. Thanks to the author!
+* Patch https://sourceforge.net/tracker/?func=detail&aid=1079144&group_id=7118&atid=307118 integrated. Thanks to the author!         
+* Patch https://sourceforge.net/tracker/?func=detail&aid=3276562&group_id=7118&atid=307118, thanks to the author!
+* Groovy script at startup supported. This is useful eg. to export maps from the command line. Call java -Dstartup_groovy_script=accessories/ExportToPdf.groovy -jar lib/freemind.jar
+* Accelerators for calendar. (Translators: add accelerators in your language to use this function!).
+
+===============================
+Changes made in FreeMind 1.0.0 Alpha4
+===============================
+* Export to pdf opens viewer afterwards.
+* Better calendar operations
+* Fixed for working in shared desktops: http://sourceforge.net/tracker/?func=detail&aid=3304466&group_id=7118&atid=107118
+* Export of branches to PDF added.
+* User Contribution (Thanks!): Proper window title in Gnome 3 * https://sourceforge.net/tracker/?func=detail&atid=307118&aid=3303016&group_id=7118
+
+===============================
+Changes made in FreeMind 1.0.0 Alpha3
+===============================
+* zoom and selected node storage now works for open/close of maps, too.
+
+===============================
+Changes made in FreeMind 1.0.0 Alpha2
+===============================
+* New feature: restore of tabs and zoom implemented
+* Commited patch Support priority icons when importing from MindManager - ID: 3260285 http://sourceforge.net/tracker/?f\
+unc=detail&atid=307118&aid=3260285&group_id=7118. Thanks to the author.
+
+===============================
+Changes made in FreeMind 1.0.0 Alpha1
+===============================
+* New plugin: jump to last edit location (like ctrl+q in eclipse)
+* mac: fixed open multiple files (thanks for the patch)
+* fixed: pasting multiple nodes drops arrow links
+* Fixed: remove cloud around root: https://sourceforge.net/projects/freemind/forums/forum/22102/topic/3867308/index/page/1
+
+
+===============================
 Changes made in FreeMind 0.9.0
 ===============================
 * Switched to git.

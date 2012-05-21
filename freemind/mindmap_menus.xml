@@ -53,6 +53,7 @@
 				<menu_action name="copy" field="copy" key_ref="keystroke_copy"/>
 				<menu_action name="copySingle" field="copySingle" key_ref="keystroke_copy_single"/>
 				<menu_action name="paste" field="paste" key_ref="keystroke_paste"/>
+				<menu_action name="pasteAsPlainText" field="pasteAsPlainText" key_ref="keystroke_pasteAsPlainText"/>
 			</menu_category>
 			<menu_category name="find">
 				<menu_action field="find" key_ref="keystroke_find"/>
@@ -66,6 +67,7 @@
 				<menu_action field="newSibling" key_ref="keystroke_add"/>
 				<menu_action name="newPreviousSibling" field="newPreviousSibling" key_ref="keystroke_add_sibling_before"/>
 			</menu_category>
+			<menu_category name="crypto"/>
 			<menu_category name="image">
 				<menu_action field="setImageByFileChooser" key_ref="keystroke_set_image_by_filechooser"/>			
 			</menu_category>
@@ -98,6 +100,7 @@
 			<menu_separator/>
 			<menu_category name="links">
 				<menu_action field="followLink" key_ref="keystroke_follow_link"/> <!-- goto -->				
+				<menu_action field="openLinkDirectory"/> 
 			</menu_category>
 			<menu_separator/>
 			<menu_category name="notes">
@@ -139,8 +142,10 @@
 					<menu_action field="removeNodeBackgroundColor"/>
 				</menu_category>
 				<menu_category name="position">
+					<!-- Reset position -->
 					<menu_action field="moveNodeAction"/>
 				</menu_category>
+				<menu_category name="remove_notes"/>
 				<menu_separator/>
 			</menu_category>
 			<menu_category name="icons">
@@ -186,8 +191,8 @@
 				</menu_category>
 				<menu_category name="nodes">
 					<menu_category name="sorting"/>
-					<menu_category name="crypto">
-					</menu_category>
+					<menu_category name="root"/>
+					<menu_separator/>
 					<menu_category name="change"/>
 				</menu_category>
 				<menu_separator/>
@@ -201,6 +206,9 @@
 				</menu_category>
 				<menu_separator/>
 				<menu_category name="collaboration">
+				</menu_category>
+				<menu_separator/>
+				<menu_category name="map">
 				</menu_category>
 				<menu_separator/>
 				<menu_category name="options">
@@ -311,13 +319,16 @@
 				<menu_action field="addLocalLinkAction" key_ref="keystroke_add_local_link_action"/>
 			</menu_category>
 		</menu_submenu>	
-			<menu_submenu name="patterns" name_ref="extension_menu">
-				<menu_category name="manage">
-				</menu_category>
-				<menu_separator/>
-				<menu_category name="patterns">
-				</menu_category>
-			</menu_submenu>
+		<menu_submenu name="patterns" name_ref="extension_menu">
+			<menu_category name="manage">
+			</menu_category>
+			<menu_separator/>
+			<menu_category name="patterns">
+			</menu_category>
+		</menu_submenu>
+		<menu_separator/>
+		<menu_category name="map">
+		</menu_category>
 	</menu_category>
 
 	<menu_category name="mindmapmode_toolbar">
@@ -326,11 +337,7 @@
 				<menu_action field="open" key_ref="keystroke_open"/>
 				<menu_action field="save" key_ref="keystroke_save"/>
 				<menu_action field="saveAs" key_ref="keystroke_saveAs"/>
-			</menu_category>
-			<menu_separator/>
-			<menu_category name="undo">
-				<menu_action name="undo" field="undo" key_ref="keystroke_undo"/>
-				<menu_action name="redo" field="redo" key_ref="keystroke_redo"/>
+				<menu_action name="printDirect" field="printDirect"/>
 			</menu_category>
 			<menu_separator/>
 			<menu_category name="paste">
@@ -338,6 +345,16 @@
 				<menu_action name="copy" field="copy" key_ref="keystroke_copy"/>
 				<menu_action name="paste" field="paste" key_ref="keystroke_paste"/>
 			</menu_category>
+			<menu_separator/>
+			<menu_category name="undo">
+				<menu_action name="undo" field="undo" key_ref="keystroke_undo"/>
+				<menu_action name="redo" field="redo" key_ref="keystroke_redo"/>
+			</menu_category>
+<!--			<menu_separator/>
+	 		<menu_category name="navigation">
+				<menu_action name="navigationPreviousMap" field="navigationPreviousMap"/>
+				<menu_action name="navigationNextMap" field="navigationNextMap"/>
+			</menu_category>  -->
 			<menu_separator/>
 			<menu_category name="insert">
 				<menu_action name="newChild" field="newChild"/>
@@ -352,9 +369,12 @@
 				<menu_action field="cloud" key_ref="keystroke_node_toggle_cloud"/>
 			</menu_category>
 			<menu_separator/>
-			<menu_category name="attributes">
-				<menu_action field="showAttributeManagerAction" key_ref="keystroke_show_attribute_manager"/>
+			<menu_category name="filter">
+				<menu_action name="showFilterToolbarAction" field="showFilterToolbarAction"/>
 			</menu_category>
+<!-- 		<menu_category name="attributes">
+				<menu_action field="showAttributeManagerAction" key_ref="keystroke_show_attribute_manager"/>
+			</menu_category>  -->
 			<menu_separator/>
 			<menu_category name="folding">
 			</menu_category>

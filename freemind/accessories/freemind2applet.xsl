@@ -47,7 +47,7 @@
         <!-- look if there is any node inside the map (there should never be none, but who knows?) 
              and take its text as the title -->
         <xsl:choose>
-          <xsl:when test="/map/node">
+          <xsl:when test="/map/node/@TEXT">
             <title><xsl:value-of select="/map/node/@TEXT" /></title>
           </xsl:when>
           <xsl:otherwise>
@@ -76,6 +76,7 @@ html { height:100% }
             </xsl:element>
             <param name="initial_mode" value="Browse"/>
             <param name="selection_method" value="selection_method_direct"/>
+            <param name="separate_jvm" value="true"/>
         </xsl:element>
    		</body>
     </html>
