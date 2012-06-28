@@ -38,7 +38,13 @@ public class ShadowClonePlugin extends PermanentMindMapNodeHookAdapter {
 	public void loadFrom(XMLElement child) {
 		super.loadFrom(child);
 		HashMap values = loadNameValuePairs(child);
-		mOriginalNodeId = (String) values.get(XML_STORAGE_ORIGINAL);
+		final String xmlId = (String) values.get(XML_STORAGE_ORIGINAL);
+		if (xmlId != null) {
+			mOriginalNodeId = xmlId;
+			logger.finest("Setting mOriginalNodeId to " + mOriginalNodeId);
+		} else {
+			logger.finest("Leaving mOriginalNodeId to be " + mOriginalNodeId);
+		}
 	}
 
 	public void save(XMLElement xml) {
@@ -82,6 +88,7 @@ public class ShadowClonePlugin extends PermanentMindMapNodeHookAdapter {
 
 	public void setOriginalNodeId(String pOriginalNodeId) {
 		mOriginalNodeId = pOriginalNodeId;
+		logger.finest("Setting mOriginalNodeId to " + mOriginalNodeId);
 		startupMapHook();
 	}
 }

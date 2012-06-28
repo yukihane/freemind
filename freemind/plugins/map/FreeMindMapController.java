@@ -75,13 +75,10 @@ import org.openstreetmap.gui.jmapviewer.JMapController;
 import org.openstreetmap.gui.jmapviewer.JMapViewer;
 import org.openstreetmap.gui.jmapviewer.OsmMercator;
 import org.openstreetmap.gui.jmapviewer.interfaces.TileSource;
-import org.openstreetmap.gui.jmapviewer.interfaces.TileSource.TileUpdate;
 import org.openstreetmap.gui.jmapviewer.tilesources.AbstractOsmTileSource;
 import org.openstreetmap.gui.jmapviewer.tilesources.OsmTileSource;
 
 import plugins.map.MapDialog.SearchResultListModel;
-import sun.reflect.ReflectionFactory.GetReflectionFactoryAction;
-import sun.reflect.ReflectionFactory.GetReflectionFactoryAction;
 import freemind.common.XmlBindingTools;
 import freemind.controller.MenuItemEnabledListener;
 import freemind.controller.MenuItemSelectedListener;
@@ -613,12 +610,12 @@ public class FreeMindMapController extends JMapController implements
 
 		protected boolean isEnabledCheck() {
 			return getPositionHolderIndex() >= 0
-					&& getPositionHolderIndex() < getPositionHolderVector().size() - 1;
+					&& getPositionHolderIndex() < getPositionHolderVector()
+							.size() - 1;
 		}
 
 		public boolean isEnabled(JMenuItem pItem, Action pAction) {
-			return true; // disables the keyboard checks as well:
-							// isEnabledCheck();
+			return isEnabledCheck();
 		}
 
 	}
@@ -646,8 +643,7 @@ public class FreeMindMapController extends JMapController implements
 		}
 
 		public boolean isEnabled(JMenuItem pItem, Action pAction) {
-			return true; // disables the keyboard checks as well:
-							// isEnabledCheck();
+			return isEnabledCheck();
 		}
 
 	}
@@ -1103,7 +1099,7 @@ public class FreeMindMapController extends JMapController implements
 		Action exportAction = new ExportMapAction();
 		/** Menu **/
 		StructuredMenuHolder menuHolder = new StructuredMenuHolder();
-		JMenuBar menu = new JMenuBar();
+		mMenuBar = new JMenuBar();
 		JMenu mainItem = new JMenu(getText("MapControllerPopupDialog.Actions"));
 		menuHolder.addMenu(mainItem, "main/actions/.");
 		addAccelerator(menuHolder.addAction(placeAction, "main/actions/place"),
@@ -1154,10 +1150,12 @@ public class FreeMindMapController extends JMapController implements
 				"main/navigation/MoveHome"),
 				"keystroke_plugins/map/MapDialogMoveHome");
 		menuHolder.addSeparator("main/navigation/");
-		addAccelerator(menuHolder.addAction(new MoveBackwardAction(),
+		mMoveBackwardAction = new MoveBackwardAction();
+		addAccelerator(menuHolder.addAction(mMoveBackwardAction,
 				"main/navigation/moveBackward"),
 				"keystroke_plugins/map/MapDialog_moveBackward");
-		addAccelerator(menuHolder.addAction(new MoveForwardAction(),
+		mMoveForwardAction = new MoveForwardAction();
+		addAccelerator(menuHolder.addAction(mMoveForwardAction,
 				"main/navigation/moveForward"),
 				"keystroke_plugins/map/MapDialog_moveForward");
 		menuHolder.addSeparator("main/navigation/");
@@ -1175,8 +1173,8 @@ public class FreeMindMapController extends JMapController implements
 				"keystroke_plugins/map/MapDialog_moveDown");
 		menuHolder.addSeparator("main/navigation/");
 
-		menuHolder.updateMenus(menu, "main/");
-		mMapDialog.setJMenuBar(menu);
+		menuHolder.updateMenus(mMenuBar, "main/");
+		mMapDialog.setJMenuBar(mMenuBar);
 		/* Popup menu */
 		menuHolder.addAction(newNodeAction, "popup/newNode");
 		menuHolder.addSeparator("popup/");
@@ -1680,6 +1678,12 @@ public class FreeMindMapController extends JMapController implements
 
 	private Action mZoomOutAction;
 
+	private MoveForwardAction mMoveForwardAction;
+
+	private MoveBackwardAction mMoveBackwardAction;
+
+	JMenuBar mMenuBar;
+
 	public void mouseReleased(MouseEvent e) {
 		if (!mClickEnabled) {
 			return;
@@ -1762,18 +1766,26 @@ public class FreeMindMapController extends JMapController implements
 	}
 
 	protected void storeMapPosition(final Coordinate coordinates) {
+		// if position is not at the end, the locations in front are deleted.
+		while(getPositionHolderIndex() < getPositionHolderVector().size()-1){
+			getPositionHolderVector().remove(getPositionHolderVector().size()-1);			
+		}
 		final PositionHolder holder = new PositionHolder(coordinates.getLat(),
 				coordinates.getLon(), getMap().getZoom());
 		setPositionHolderIndex(getPositionHolderIndex() + 1);
 		logger.info("Storing position " + holder + " at index "
 				+ getPositionHolderIndex());
-		getPositionHolderVector().insertElementAt(holder, getPositionHolderIndex());
+		getPositionHolderVector().insertElementAt(holder,
+				getPositionHolderIndex());
 		// assure that max size is below limit.
 		while (getPositionHolderVector().size() >= POSITION_HOLDER_LIMIT
 				&& getPositionHolderIndex() > 0) {
 			getPositionHolderVector().remove(0);
 			setPositionHolderIndex(getPositionHolderIndex() - 1);
 		}
+		// update actions
+		mMoveForwardAction.setEnabled(mMoveForwardAction.isEnabled());
+		mMoveBackwardAction.setEnabled(mMoveBackwardAction.isEnabled());
 	}
 
 	protected void setCursor(int defaultCursor, boolean pVisible) {
@@ -1896,9 +1908,10 @@ public class FreeMindMapController extends JMapController implements
 	public void setCursorPosition(Place pPlace) {
 		map.setDisplayPositionByLatLon(pPlace.getLat(), pPlace.getLon(),
 				map.getZoom());
-		getMap().setCursorPosition(
-				new Coordinate(pPlace.getLat(), pPlace.getLon()));
-
+		Coordinate cursorPosition = new Coordinate(pPlace.getLat(),
+				pPlace.getLon());
+		getMap().setCursorPosition(cursorPosition);
+		storeMapPosition(cursorPosition);
 	}
 
 	/**

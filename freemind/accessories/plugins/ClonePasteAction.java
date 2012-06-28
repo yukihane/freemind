@@ -38,6 +38,7 @@ import freemind.modes.MindMap;
 import freemind.modes.MindMapNode;
 import freemind.modes.ModeController;
 import freemind.modes.mindmapmode.MindMapController;
+import freemind.modes.mindmapmode.actions.NodeHookAction;
 import freemind.modes.mindmapmode.hooks.MindMapNodeHookAdapter;
 
 /**
@@ -118,6 +119,17 @@ public class ClonePasteAction extends MindMapNodeHookAdapter {
 		if (originalNode.isRoot()) {
 			throw new IllegalArgumentException("Root can't be cloned");
 		}
+		// next error case: the original node must not contain other clones!
+		Vector childs = new Vector();
+		childs.addAll(originalNode.getChildren());
+		while(!childs.isEmpty()) {
+			MindMapNode node = (MindMapNode) childs.firstElement();
+			childs.remove(0);
+			childs.addAll(node.getChildren());
+			if(getHook(node)!= null || getShadowHook(node) != null) {
+				throw new IllegalArgumentException("There is already the clone '" + node.getShortText(getMindMapController()) + "' inside. Clones can't be stacked.");
+			}
+		}
 		// insert clone:
 		List listOfChilds = pDestinationNode.getChildren();
 		Vector listOfChildIds = new Vector();
@@ -164,6 +176,9 @@ public class ClonePasteAction extends MindMapNodeHookAdapter {
 	}
 
 	public static ClonePlugin getHook(MindMapNode originalNode) {
+		if(originalNode == null) {
+			return null;
+		}
 		for (Iterator it2 = originalNode.getActivatedHooks().iterator(); it2
 				.hasNext();) {
 			PermanentNodeHook hook = (PermanentNodeHook) it2.next();
@@ -194,6 +209,8 @@ public class ClonePasteAction extends MindMapNodeHookAdapter {
 	public static class Registration implements HookRegistration,
 			MenuItemEnabledListener {
 
+		private static final String PLUGIN_NAME = "accessories/plugins/ClonePasteAction.properties";
+
 		private HashSet/* String */mOriginalNodeIds = new HashSet();
 
 		private final MindMapController controller;
@@ -211,9 +228,21 @@ public class ClonePasteAction extends MindMapNodeHookAdapter {
 		public boolean isEnabled(JMenuItem pItem, Action pAction) {
 			if (controller == null)
 				return false;
-			Vector mindMapNodes = getMindMapNodes();
-			// logger.warning("Nodes " + Tools.listToString(mindMapNodes));
-			return !mindMapNodes.isEmpty();
+			String hookName = ((NodeHookAction) pAction).getHookName();
+			if (PLUGIN_NAME.equals(hookName)) {
+				// only enabled, if nodes have been copied before.
+				Vector mindMapNodes = getMindMapNodes();
+				// logger.warning("Nodes " + Tools.listToString(mindMapNodes));
+				return !mindMapNodes.isEmpty();
+			}
+			List selecteds = controller.getSelecteds();
+			for (Iterator it = selecteds.iterator(); it.hasNext();) {
+				MindMapNode node = (MindMapNode) it.next();
+				if(getHook(node)!= null || getShadowHook(node) != null) {
+					return true;
+				}
+			}
+			return false;
 		}
 
 		public void deRegister() {

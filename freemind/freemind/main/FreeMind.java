@@ -21,6 +21,7 @@
 package freemind.main;
 
 import java.awt.BorderLayout;
+import java.awt.Container;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Insets;
@@ -46,6 +47,7 @@ import java.net.Socket;
 import java.net.URL;
 import java.text.MessageFormat;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -59,6 +61,7 @@ import java.util.logging.FileHandler;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
 
 import javax.swing.ImageIcon;
 import javax.swing.InputMap;
@@ -135,7 +138,7 @@ public class FreeMind extends JFrame implements FreeMindMain {
 
 	private Logger logger = null;
 
-	protected static final VersionInformation VERSION = new VersionInformation("1.0.0 Beta 3");
+	protected static final VersionInformation VERSION = new VersionInformation("1.0.0 Beta 5");
 
 	public static final String XML_VERSION = "1.0.0";
 
@@ -212,6 +215,8 @@ public class FreeMind extends JFrame implements FreeMindMain {
 
 	private EditServer mEditServer = null;
 
+	private Vector mLoggerList = new Vector();
+
 	public static final String KEYSTROKE_MOVE_MAP_LEFT = "keystroke_MoveMapLeft";
 
 	public static final String KEYSTROKE_MOVE_MAP_RIGHT = "keystroke_MoveMapRight";
@@ -225,6 +230,8 @@ public class FreeMind extends JFrame implements FreeMindMain {
 	public static final String RESOURCES_DON_T_SHOW_NOTE_TOOLTIPS = "resources_don_t_show_note_tooltips";
 
 	public static final String RESOURCES_SEARCH_FOR_NODE_TEXT_WITHOUT_QUESTION = "resources_search_for_node_text_without_question";
+
+	private static LogFileLogHandler sLogFileHandler;
 
 	public FreeMind(Properties pDefaultPreferences,
 			Properties pUserPreferences, File pAutoPropertiesFile) {
@@ -701,6 +708,7 @@ public class FreeMind extends JFrame implements FreeMindMain {
 
 	public Logger getLogger(String forClass) {
 		Logger loggerForClass = java.util.logging.Logger.getLogger(forClass);
+		mLoggerList.add(loggerForClass);
 		if (mFileHandler == null && !mFileHandlerError) {
 			// initialize handlers using an old System.err:
 			final Logger parentLogger = loggerForClass.getParent();
@@ -724,6 +732,10 @@ public class FreeMind extends JFrame implements FreeMindMain {
 				stdConsoleHandler.setLevel(Level.WARNING);
 				parentLogger.addHandler(stdConsoleHandler);
 
+				sLogFileHandler = new LogFileLogHandler();
+				sLogFileHandler.setFormatter(new SimpleFormatter());
+				sLogFileHandler.setLevel(Level.INFO);
+
 				LoggingOutputStream los;
 				Logger logger = Logger.getLogger(StdFormatter.STDOUT.getName());
 				los = new LoggingOutputStream(logger, StdFormatter.STDOUT);
@@ -740,6 +752,9 @@ public class FreeMind extends JFrame implements FreeMindMain {
 				// to avoid infinite recursion.
 				// freemind.main.Resources.getInstance().logExecption(e);
 			}
+		}
+		if (sLogFileHandler != null) {
+			loggerForClass.addHandler(sLogFileHandler);
 		}
 		return loggerForClass;
 	}
@@ -1286,6 +1301,10 @@ public class FreeMind extends JFrame implements FreeMindMain {
 			StartupDoneListener pStartupDoneListener) {
 		if (!mStartupDone)
 			mStartupDoneListeners.add(pStartupDoneListener);
+	}
+
+	public List getLoggerList() {
+		return Collections.unmodifiableList(mLoggerList);
 	}
 
 }
