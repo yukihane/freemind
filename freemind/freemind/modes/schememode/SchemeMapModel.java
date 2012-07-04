@@ -33,6 +33,7 @@ import java.io.StreamTokenizer;
 import java.io.Writer;
 import java.net.URL;
 
+import freemind.main.FreeMindCommon;
 import freemind.main.FreeMindMain;
 import freemind.modes.MapAdapter;
 import freemind.modes.ModeController;
@@ -58,7 +59,7 @@ public class SchemeMapModel extends MapAdapter {
 
 			// Generating output Stream
 			BufferedWriter fileout = new BufferedWriter(new OutputStreamWriter(
-					new FileOutputStream(file)));
+					new FileOutputStream(file), FreeMindCommon.DEFAULT_CHARSET));
 
 			fileout.write(getCode());
 			fileout.close();

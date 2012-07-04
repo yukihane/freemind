@@ -51,6 +51,7 @@ import javax.xml.transform.stream.StreamSource;
 import accessories.plugins.util.html.ClickableImageCreator;
 import accessories.plugins.util.xslt.ExportDialog;
 import freemind.extensions.ExportHook;
+import freemind.main.FreeMindCommon;
 import freemind.main.Resources;
 import freemind.main.Tools;
 import freemind.modes.MindIcon;
@@ -198,7 +199,7 @@ public class ExportWithXSLT extends ExportHook {
 		// Generating output Stream
 		BufferedWriter fileout = new BufferedWriter(
 				new OutputStreamWriter(new FileOutputStream(pDirectoryName
-						+ File.separator + "map.mm")));
+						+ File.separator + "map.mm"), FreeMindCommon.DEFAULT_CHARSET));
 		getController().getMap().getFilteredXml(fileout);
 		return success;
 	}

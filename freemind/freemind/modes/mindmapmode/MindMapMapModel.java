@@ -185,7 +185,7 @@ public class MindMapMapModel extends MapAdapter {
 		// Returns success of the operation.
 		try {
 			BufferedWriter fileout = new BufferedWriter(new OutputStreamWriter(
-					new FileOutputStream(file)));
+					new FileOutputStream(file), FreeMindCommon.DEFAULT_CHARSET));
 			rootNodeOfBranch.saveTXT(fileout,/* depth= */0);
 			fileout.close();
 			return true;
@@ -286,7 +286,7 @@ public class MindMapMapModel extends MapAdapter {
 				timerForAutomaticSaving.cancel();
 			}
 			BufferedWriter fileout = new BufferedWriter(new OutputStreamWriter(
-					new FileOutputStream(file)));
+					new FileOutputStream(file), FreeMindCommon.DEFAULT_CHARSET));
 			getXml(fileout);
 
 			if (!isInternal) {
