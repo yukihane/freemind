@@ -1,4 +1,22 @@
 ===============================
+Changes made in FreeMind 1.0.0 Beta7
+===============================
+* Bug fix: open hyperlinks that are not local links fixed.
+
+===============================
+Changes made in FreeMind 1.0.0 Beta6
+===============================
+* Geographical search results are displayed differently when selected.
+* Geographical search results are displayed as table including its distance to the cursor.
+* Geographical search can be limited to the visible map
+* http-Proxies can be used, Settings can be entered in the preferences dialog.
+* Page format for print jobs is stored in preferences and restored on each startup.
+* NEW: viewer for maps in the browse mode/java applet.
+* Free node movement is now switched off by default and can be enabled in the preferences.
+* FIXED: Hyperlink open for local file references with unicode characters (for java 6 or higher).
+* Improved display on Retina. Thanks to Rika!
+
+===============================
 Changes made in FreeMind 1.0.0 Beta5
 ===============================
 * Added more libraries for Xalan.

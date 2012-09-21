@@ -27,10 +27,14 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.lang.reflect.Method;
+import java.net.Authenticator;
 import java.net.MalformedURLException;
+import java.net.PasswordAuthentication;
 import java.net.URL;
+import java.util.Collections;
 import java.util.Locale;
 import java.util.Properties;
+import java.util.Vector;
 
 import javax.swing.JOptionPane;
 
@@ -48,6 +52,30 @@ import com.inet.jortho.SpellChecker;
  * 
  */
 public class FreeMindStarter {
+	/**
+	 * 
+	 */
+	public static final String PROXY_PORT = "proxy.port";
+	/**
+	 * 
+	 */
+	public static final String PROXY_HOST = "proxy.host";
+	/**
+	 * 
+	 */
+	public static final String PROXY_PASSWORD = "proxy.password";
+	/**
+	 * 
+	 */
+	public static final String PROXY_USER = "proxy.user";
+	/**
+	 * 
+	 */
+	public static final String PROXY_IS_AUTHENTICATED = "proxy.is_authenticated";
+	/**
+	 * 
+	 */
+	public static final String PROXY_USE_SETTINGS = "proxy.use_settings";
 	/** Doubled variable on purpose. See header of this class. */
 	static final String JAVA_VERSION = System.getProperty("java.version");
 
@@ -61,9 +89,22 @@ public class FreeMindStarter {
 				starter.readUsersPreferences(defaultPreferences);
 		starter.setDefaultLocale(userPreferences);
 
+		// proxy settings
+		if("true".equals(userPreferences.getProperty(PROXY_USE_SETTINGS))) {
+			if ("true".equals(userPreferences.getProperty(PROXY_IS_AUTHENTICATED))) {
+				Authenticator.setDefault(new ProxyAuthenticator(userPreferences
+						.getProperty(PROXY_USER), Tools.decompress(userPreferences
+						.getProperty(PROXY_PASSWORD))));
+			}
+			System.setProperty("http.proxyHost", userPreferences.getProperty(PROXY_HOST));
+			System.setProperty("http.proxyPort", userPreferences.getProperty(PROXY_PORT));
+		}
 		// Christopher Robin Elmersson: set
 		Toolkit xToolkit = Toolkit.getDefaultToolkit();
 
+		// workaround for java bug http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=7075600
+		System.setProperty("java.util.Arrays.useLegacyMergeSort", "true");
+		
 		try {
 			java.lang.reflect.Field awtAppClassNameField =
 					xToolkit.getClass().getDeclaredField("awtAppClassName");
@@ -224,5 +265,19 @@ public class FreeMindStarter {
 			System.err.println("Panic! Error while loading default properties.");
 		}
 		return props;
+	}
+	
+	public static class ProxyAuthenticator extends Authenticator {
+
+	    private String user, password;
+
+	    public ProxyAuthenticator(String user, String password) {
+	        this.user = user;
+	        this.password = password;
+	    }
+
+	    protected PasswordAuthentication getPasswordAuthentication() {
+	        return new PasswordAuthentication(user, password.toCharArray());
+	    }
 	}
 }

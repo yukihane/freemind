@@ -59,6 +59,7 @@ import freemind.common.ComboProperty;
 import freemind.common.DontShowNotificationProperty;
 import freemind.common.NextLineProperty;
 import freemind.common.NumberProperty;
+import freemind.common.PasswordProperty;
 import freemind.common.PropertyBean;
 import freemind.common.PropertyControl;
 import freemind.common.RemindValueProperty;
@@ -66,10 +67,12 @@ import freemind.common.SeparatorProperty;
 import freemind.common.StringProperty;
 import freemind.common.TextTranslator;
 import freemind.common.XmlBindingTools;
+import freemind.controller.StructuredMenuHolder;
 import freemind.controller.actions.generated.instance.OptionPanelWindowConfigurationStorage;
 import freemind.controller.actions.generated.instance.WindowConfigurationStorage;
 import freemind.main.FreeMind;
 import freemind.main.FreeMindCommon;
+import freemind.main.FreeMindStarter;
 import freemind.main.Tools;
 import freemind.modes.IconInformation;
 import freemind.modes.MindIcon;
@@ -447,10 +450,10 @@ public class OptionPanel implements TextTranslator {
 		 * http://www.loc.gov/standards/iso639-2/php/English_list.php
 		 */
 		"language.tooltip", FreeMindCommon.RESOURCE_LANGUAGE, new String[] {
-				"automatic", "ar", "bg", "cs", "de", "dk", "en", "el", "es", "et",
-				"eu", "fr", "gl", "hr", "hu", "id", "it", "ja", "ko", "lt",
-				"nl", "nn", "nb", "pl", "pt_BR", "pt_PT", "ro", "ru", "sk",
-				"se", "sl", "tr", "uk_UA", "vi", "zh_TW", "zh_CN" },
+				"automatic", "ar", "bg", "cs", "de", "dk", "en", "el", "es",
+				"et", "eu", "fr", "gl", "hr", "hu", "id", "it", "ja", "ko",
+				"lt", "nl", "nn", "nb", "pl", "pt_BR", "pt_PT", "ro", "ru",
+				"sk", "se", "sl", "sr", "tr", "uk_UA", "vi", "zh_TW", "zh_CN" },
 				new TextTranslator() {
 
 					public String getText(String pKey) {
@@ -460,9 +463,8 @@ public class OptionPanel implements TextTranslator {
 					}
 				})); // automatic
 
-		controls.add (new BooleanProperty(
-				FreeMindCommon.CHECK_SPELLING + ".tooltip",
-				FreeMindCommon.CHECK_SPELLING)); // true
+		controls.add(new BooleanProperty(FreeMindCommon.CHECK_SPELLING
+				+ ".tooltip", FreeMindCommon.CHECK_SPELLING)); // true
 
 		// INTERNAL PROPERTY.
 		// controls
@@ -486,8 +488,27 @@ public class OptionPanel implements TextTranslator {
 		// "properties_folder")); // .freemind
 
 		controls.add(new NextLineProperty());
+		controls.add(new SeparatorProperty("proxy"));
+		controls.add(new BooleanProperty(FreeMindStarter.PROXY_USE_SETTINGS
+				+ ".tooltip", FreeMindStarter.PROXY_USE_SETTINGS));
+		controls.add(new StringProperty(
+				FreeMindStarter.PROXY_HOST + ".tooltip",
+				FreeMindStarter.PROXY_HOST));
+		controls.add(new NumberProperty(
+				FreeMindStarter.PROXY_PORT + ".tooltip",
+				FreeMindStarter.PROXY_PORT, 1, 65535, 1));
+		controls.add(new BooleanProperty(FreeMindStarter.PROXY_IS_AUTHENTICATED
+				+ ".tooltip", FreeMindStarter.PROXY_IS_AUTHENTICATED));
+		controls.add(new StringProperty(
+				FreeMindStarter.PROXY_USER + ".tooltip",
+				FreeMindStarter.PROXY_USER));
+		controls.add(new PasswordProperty(FreeMindStarter.PROXY_PASSWORD
+				+ ".tooltip", FreeMindStarter.PROXY_PASSWORD));
+
+		controls.add(new NextLineProperty());
 		controls.add(new SeparatorProperty("files"));
-		controls.add(new NumberProperty(null, "last_opened_list_length", 0, 200, 1)); // 25
+		controls.add(new NumberProperty(null, "last_opened_list_length", 0,
+				200, 1)); // 25
 		controls.add(new BooleanProperty(FreeMindCommon.LOAD_LAST_MAP
 				+ ".tooltip", FreeMindCommon.LOAD_LAST_MAP)); // true
 		controls.add(new BooleanProperty(FreeMind.RESOURCES_DON_T_OPEN_PORT
@@ -667,6 +688,11 @@ public class OptionPanel implements TextTranslator {
 		controls.add(new BooleanProperty(
 
 		"use_tabbed_pane.tooltip", FreeMind.RESOURCES_USE_TABBED_PANE)); // true
+		controls.add(new NumberProperty(
+				StructuredMenuHolder.AMOUNT_OF_VISIBLE_MENU_ITEMS + ".tooltip",
+				StructuredMenuHolder.AMOUNT_OF_VISIBLE_MENU_ITEMS, 10,
+				Integer.MAX_VALUE, 1));
+
 		// controls.add(new BooleanProperty(
 		//
 		// "use_split_pane.tooltip", FreeMind.RESOURCES_USE_SPLIT_PANE)); //
@@ -739,11 +765,12 @@ public class OptionPanel implements TextTranslator {
 
 		controls.add(new BooleanProperty(null, "el__show_icon_for_attributes")); // true
 
-		controls.add(new SeparatorProperty("icon_properties"));
+		controls.add(new SeparatorProperty("note_properties"));
 		controls.add(new BooleanProperty(null,
 				FreeMind.RESOURCES_DON_T_SHOW_NOTE_ICONS));
 		controls.add(new BooleanProperty(null,
 				FreeMind.RESOURCES_DON_T_SHOW_NOTE_TOOLTIPS));
+		controls.add(new SeparatorProperty("icon_properties"));
 		controls.add(new StringProperty("icon_order_description",
 				MindIcon.PROPERTY_STRING_ICONS_LIST));
 		/***********************************************************************
@@ -1134,10 +1161,9 @@ public class OptionPanel implements TextTranslator {
 		 */
 		controls.add(new NewTabProperty("Behaviour"));
 		controls.add(new SeparatorProperty("behaviour"));
-		controls.add(new ComboProperty(
-
-		"placenewbranches.tooltip", "placenewbranches", new String[] { "first",
-				"last" }, this)); // last
+		controls.add(new BooleanProperty("enable_node_movement.tooltip", "enable_node_movement")); 
+		controls.add(new ComboProperty("placenewbranches.tooltip",
+				"placenewbranches", new String[] { "first", "last" }, this)); // last
 		controls.add(new BooleanProperty("draganddrop.tooltip", "draganddrop")); // true
 
 		controls.add(new BooleanProperty("unfold_on_paste.tooltip",
@@ -1154,13 +1180,11 @@ public class OptionPanel implements TextTranslator {
 
 		controls.add(new NextLineProperty());
 		controls.add(new SeparatorProperty("key_typing"));
-		controls.add(new BooleanProperty(
+		controls.add(new BooleanProperty("disable_key_type.tooltip",
+				"disable_key_type")); // false
 
-		"disable_key_type.tooltip", "disable_key_type")); // false
-
-		controls.add(new BooleanProperty(
-
-		"key_type_adds_new.tooltip", "key_type_adds_new")); // false
+		controls.add(new BooleanProperty("key_type_adds_new.tooltip",
+				"key_type_adds_new")); // false
 
 		controls.add(new NextLineProperty());
 		controls.add(new SeparatorProperty("resources_notifications"));

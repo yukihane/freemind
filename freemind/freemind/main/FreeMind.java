@@ -21,7 +21,6 @@
 package freemind.main;
 
 import java.awt.BorderLayout;
-import java.awt.Container;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Insets;
@@ -42,6 +41,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintStream;
+import java.lang.reflect.Method;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.URL;
@@ -84,7 +84,6 @@ import freemind.modes.ModeController;
 import freemind.preferences.FreemindPropertyListener;
 import freemind.view.MapModule;
 import freemind.view.mindmapview.MapView;
-import freemind.view.mindmapview.NodeView;
 
 public class FreeMind extends JFrame implements FreeMindMain {
 
@@ -138,7 +137,7 @@ public class FreeMind extends JFrame implements FreeMindMain {
 
 	private Logger logger = null;
 
-	protected static final VersionInformation VERSION = new VersionInformation("1.0.0 Beta 5");
+	protected static final VersionInformation VERSION = new VersionInformation("1.0.0 Beta 7");
 
 	public static final String XML_VERSION = "1.0.0";
 
@@ -524,6 +523,8 @@ public class FreeMind extends JFrame implements FreeMindMain {
 		// browser.
 
 		String osName = System.getProperty("os.name");
+		String urlString = url.toString();
+
 		if (osName.substring(0, 3).equals("Win")) {
 			String propertyString = new String(
 					"default_browser_command_windows");
@@ -565,31 +566,44 @@ public class FreeMind extends JFrame implements FreeMindMain {
 
 				// build string for default browser:
 				// ask for property about browser: fc, 26.11.2003.
-				Object[] messageArguments = { url.toString() };
+				Object[] messageArguments = { urlString };
 				MessageFormat formatter = new MessageFormat(
 						getProperty(propertyString));
 				browser_command = formatter.format(messageArguments);
 
 				if (url.getProtocol().equals("file")) {
+					final File file = Tools.urlToFile(url);
+					if (!Tools.isBelowJava6()) {
+						Class desktopClass = Class.forName("java.awt.Desktop");
+						Method getDesktopMethod = desktopClass.getMethod(
+								"getDesktop", new Class[] {});
+						Object desktopObject = getDesktopMethod.invoke(null,
+								new Object[] {});
+						Method openMethod = desktopObject.getClass().getMethod(
+								"open", new Class[] { File.class });
+						openMethod.invoke(desktopObject, new Object[] { file });
+						return;
+					}
 					// command = "rundll32 url.dll,FileProtocolHandler "+
 					// Tools.urlGetFile(url);
 					// bug fix by Dan:
-					command = "rundll32 url.dll,FileProtocolHandler "
-							+ url.toString();
+					command = "cmd /C rundll32 url.dll,FileProtocolHandler "
+							+ urlString;
 					// see
 					// http://rsb.info.nih.gov/ij/developer/source/ij/plugin/BrowserLauncher.java.html
 					if (System.getProperty("os.name")
 							.startsWith("Windows 2000"))
-						command = "rundll32 shell32.dll,ShellExec_RunDLL "
-								+ url.toString();
-				} else if (url.toString().startsWith("mailto:")) {
-					command = "rundll32 url.dll,FileProtocolHandler "
-							+ url.toString();
+						command = "cmd /C rundll32 shell32.dll,ShellExec_RunDLL "
+								+ urlString;
+				} else if (urlString.startsWith("mailto:")) {
+					command = "cmd /C rundll32 url.dll,FileProtocolHandler "
+							+ urlString;
 				} else {
 					command = browser_command;
 				}
-				logger.info("Starting browser with "+command);
-				Runtime.getRuntime().exec(command);
+				logger.info("Starting browser with " + command);
+				// Runtime.getRuntime().exec(command);
+				execWindows(command);
 			} catch (IOException x) {
 				controller
 						.errorMessage("Could not invoke browser.\n\nFreemind excecuted the following statement on a command line:\n\""
@@ -604,11 +618,16 @@ public class FreeMind extends JFrame implements FreeMindMain {
 			String browser_command = new String();
 			try {
 				// ask for property about browser: fc, 26.11.2003.
-				Object[] messageArguments = { correctedUrl, url.toString() };
-				if("file".equals(url.getProtocol())){
-					// Bug in the apple's open function. For files, a pure filename must be given.
-					String[] command = {getProperty("default_browser_command_mac_open"), "file:" + Tools.urlToFile(url).getAbsolutePath()};
-					logger.info("Starting command: " + Arrays.deepToString(command));
+				Object[] messageArguments = { correctedUrl, urlString };
+				if ("file".equals(url.getProtocol())) {
+					// Bug in the apple's open function. For files, a pure
+					// filename must be given.
+					final File file = Tools.urlToFile(url);
+					String[] command = {
+							getProperty("default_browser_command_mac_open"),
+							"file:" + file.getAbsolutePath() };
+					logger.info("Starting command: "
+							+ Arrays.deepToString(command));
 					Runtime.getRuntime().exec(command, null, null);
 				} else {
 					MessageFormat formatter = new MessageFormat(
@@ -634,7 +653,7 @@ public class FreeMind extends JFrame implements FreeMindMain {
 			String browser_command = new String();
 			try {
 				// ask for property about browser: fc, 26.11.2003.
-				Object[] messageArguments = { correctedUrl, url.toString() };
+				Object[] messageArguments = { correctedUrl, urlString };
 				MessageFormat formatter = new MessageFormat(
 						getProperty("default_browser_command_other_os"));
 				browser_command = formatter.format(messageArguments);
@@ -648,6 +667,43 @@ public class FreeMind extends JFrame implements FreeMindMain {
 				System.err.println("Caught: " + ex2);
 			}
 		}
+	}
+
+	/**
+	 * @param cmd
+	 *            precondition: the command can be split by spaces and the last
+	 *            argument is the only one that contains unicode chars.
+	 *            Moreover, we are under Windows. THIS METHOD DOESN'T SEEM TO
+	 *            WORK for UNICODE ARGUMENTS.
+	 * @throws IOException
+	 */
+	private void execWindows(String pCommand) throws IOException {
+		// taken and adapted from
+		// http://stackoverflow.com/questions/1876507/java-runtime-exec-on-windows-fails-with-unicode-in-arguments
+		StringTokenizer st = new StringTokenizer(pCommand, " ");
+		String[] cmd = new String[st.countTokens()];
+		int i = 0;
+		while (st.hasMoreTokens()) {
+			cmd[i++] = st.nextToken();
+		}
+		Map newEnv = new HashMap();
+		newEnv.putAll(System.getenv());
+		// exchange last argument by environment
+		String envName = "JENV_1";
+		newEnv.put(envName, cmd[cmd.length - 1]);
+		cmd[cmd.length - 1] = "%" + envName + "%";
+
+		logger.info("Starting command array "
+				+ Arrays.toString(cmd)
+				+ ", and env for "
+				+ envName
+				+ " = "
+				+ HtmlTools.unicodeToHTMLUnicodeEntity(
+						(String) newEnv.get(envName), true));
+		ProcessBuilder pb = new ProcessBuilder(cmd);
+		Map env = pb.environment();
+		env.putAll(newEnv);
+		final Process p = pb.start();
 	}
 
 	private String transpose(String input, char findChar, String replaceString) {
@@ -1228,11 +1284,7 @@ public class FreeMind extends JFrame implements FreeMindMain {
 		 */
 		mSplitPane.setResizeWeight(1.0d);
 		// split panes eat F8 and F6. This is corrected here.
-		InputMap map = (InputMap) UIManager.get("SplitPane.ancestorInputMap");
-		KeyStroke keyStrokeF6 = KeyStroke.getKeyStroke(KeyEvent.VK_F6, 0);
-		KeyStroke keyStrokeF8 = KeyStroke.getKeyStroke(KeyEvent.VK_F8, 0);
-		map.remove(keyStrokeF6);
-		map.remove(keyStrokeF8);
+		Tools.correctJSplitPaneKeyMap();
 		mContentComponent = mSplitPane;
 		setContentComponent();
 		// set divider position:
@@ -1241,12 +1293,6 @@ public class FreeMind extends JFrame implements FreeMindMain {
 		if (splitPanePosition != -1 && lastSplitPanePosition != -1) {
 			mSplitPane.setDividerLocation(splitPanePosition);
 			mSplitPane.setLastDividerLocation(lastSplitPanePosition);
-			// try {
-			// throw new IllegalArgumentException("");
-			// } catch (Exception e) {
-			// freemind.main.Resources.getInstance().logException(e);
-			// // TODO: handle exception
-			// }
 		}
 		return mSplitPane;
 	}

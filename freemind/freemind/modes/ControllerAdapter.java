@@ -447,8 +447,8 @@ public abstract class ControllerAdapter implements ModeController, DirectoryResu
 				.getRestorable());
 		if (store != null) {
 			ModeController modeController = newModeController;
-			MapView view = modeController.getView();
-			view.setZoom(store.getLastZoom());
+			// Zoom must be set on combo box, too.
+			getController().setZoom(store.getLastZoom());
 			MindMapNode sel = null;
 			try {
 				// Selected:
@@ -1583,5 +1583,15 @@ public abstract class ControllerAdapter implements ModeController, DirectoryResu
 		return getController().getMapModuleManager()
 				.getModuleGivenModeController(this);
 	}
+
+	/**
+    *
+    */
+
+	public void setToolTip(MindMapNode node, String key, String value) {
+		node.setToolTip(key, value);
+		nodeRefresh(node);
+	}
+
 
 }

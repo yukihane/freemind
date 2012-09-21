@@ -60,11 +60,11 @@ import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
-import javax.swing.JList;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
+import javax.swing.JTable;
 import javax.swing.KeyStroke;
 import javax.swing.Timer;
 import javax.swing.event.PopupMenuEvent;
@@ -78,7 +78,6 @@ import org.openstreetmap.gui.jmapviewer.interfaces.TileSource;
 import org.openstreetmap.gui.jmapviewer.tilesources.AbstractOsmTileSource;
 import org.openstreetmap.gui.jmapviewer.tilesources.OsmTileSource;
 
-import plugins.map.MapDialog.SearchResultListModel;
 import freemind.common.XmlBindingTools;
 import freemind.controller.MenuItemEnabledListener;
 import freemind.controller.MenuItemSelectedListener;
@@ -90,6 +89,7 @@ import freemind.main.Resources;
 import freemind.main.Tools;
 import freemind.modes.MindMapNode;
 import freemind.modes.ModeController;
+import freemind.modes.common.plugins.MapNodePositionHolderBase;
 import freemind.modes.mindmapmode.MindMapController;
 import freemind.view.mindmapview.EditNodeBase;
 import freemind.view.mindmapview.EditNodeTextField;
@@ -120,6 +120,14 @@ public class FreeMindMapController extends JMapController implements
 		MouseListener, MouseMotionListener, MouseWheelListener, ActionListener,
 		KeyListener {
 	/**
+	 * @author foltin
+	 * @date 27.07.2012
+	 */
+	public interface CursorPositionListener {
+		void cursorPositionChanged(Coordinate pCursorPosition);
+	}
+
+	/**
 	 * 
 	 */
 	private static final int MODIFIERS_WITHOUT_SHIFT = Integer.MAX_VALUE
@@ -149,6 +157,8 @@ public class FreeMindMapController extends JMapController implements
 	private static final float PAGE_DOWN_FACTOR = 0.85f;
 
 	private static final int POSITION_HOLDER_LIMIT = 1000;
+
+	private static final long WHEEL_ZOOM_MINIMAL_TIME_BETWEEN_CHANGES = 333;
 
 	protected static java.util.logging.Logger logger = freemind.main.Resources
 			.getInstance().getLogger("plugins.map.FreeMindMapController");
@@ -188,6 +198,12 @@ public class FreeMindMapController extends JMapController implements
 	private boolean mIsRectangularSelect;
 
 	private Coordinate mRectangularStart;
+
+	private Vector mPositionHolderVector = new Vector();
+	/**
+	 * Marks the index of the current position or -1 if none.
+	 */
+	private int mPositionHolderIndex = -1;
 
 	public static class TileSourceStore {
 		TileSource mTileSource;
@@ -260,10 +276,14 @@ public class FreeMindMapController extends JMapController implements
 	}
 
 	private static TileSourceStore[] mTileSources = new TileSourceStore[] {
-			new TileSourceStore(new OsmTileSource.Mapnik(), "M"),
-			new TileSourceStore(new OsmTileSource.CycleMap(), "C"),
-			new TileSourceStore(new TransportMap(), "T"),
-			new TileSourceStore(new MapQuestOpenMap(), "Q")
+			new TileSourceStore(new OsmTileSource.Mapnik(),
+					MapNodePositionHolderBase.SHORT_MAPNIK),
+			new TileSourceStore(new OsmTileSource.CycleMap(),
+					MapNodePositionHolderBase.SHORT_CYCLE_MAP),
+			new TileSourceStore(new TransportMap(),
+					MapNodePositionHolderBase.SHORT_TRANSPORT_MAP),
+			new TileSourceStore(new MapQuestOpenMap(),
+					MapNodePositionHolderBase.SHORT_MAP_QUEST_OPEN_MAP)
 	/* , new BingAerialTileSource() license problems.... */
 	};
 
@@ -290,7 +310,7 @@ public class FreeMindMapController extends JMapController implements
 
 		public void ok(String newText) {
 			mMindMapController.setNodeText(mNewNode, newText);
-			MapNodePositionHolder hook = placeNodes(mNewNode);
+			MapNodePositionHolderBase hook = placeNode(mNewNode);
 			endEdit();
 		}
 
@@ -380,22 +400,7 @@ public class FreeMindMapController extends JMapController implements
 		}
 
 		public void actionPerformed(ActionEvent actionEvent) {
-			placeNodes(mMindMapController.getSelected());
-		}
-	}
-
-	/**
-	 * @author foltin
-	 * @date 31.10.2011
-	 */
-	private final class RemovePlaceNodeAction extends AbstractAction {
-
-		public RemovePlaceNodeAction() {
-			super(getText("MapControllerPopupDialog.removeplace"));
-		}
-
-		public void actionPerformed(ActionEvent actionEvent) {
-			removeNodePosition(mMindMapController.getSelected());
+			placeNode(mMindMapController.getSelected());
 		}
 	}
 
@@ -600,8 +605,7 @@ public class FreeMindMapController extends JMapController implements
 			if (isEnabledCheck()) {
 				PositionHolder posHolder = (PositionHolder) getPositionHolderVector()
 						.get(getPositionHolderIndex() + 1);
-				getMap().setCursorPosition(
-						new Coordinate(posHolder.lat, posHolder.lon));
+				getMap().setCursorPosition(posHolder.getCoordinate());
 				map.setDisplayPositionByLatLon(posHolder.lat, posHolder.lon,
 						posHolder.zoom);
 				setPositionHolderIndex(getPositionHolderIndex() + 1);
@@ -630,8 +634,7 @@ public class FreeMindMapController extends JMapController implements
 			if (isEnabledCheck()) {
 				PositionHolder posHolder = (PositionHolder) getPositionHolderVector()
 						.get(getPositionHolderIndex() - 1);
-				getMap().setCursorPosition(
-						new Coordinate(posHolder.lat, posHolder.lon));
+				getMap().setCursorPosition(posHolder.getCoordinate());
 				map.setDisplayPositionByLatLon(posHolder.lat, posHolder.lon,
 						posHolder.zoom);
 				setPositionHolderIndex(getPositionHolderIndex() - 1);
@@ -648,7 +651,7 @@ public class FreeMindMapController extends JMapController implements
 
 	}
 
-	private final class PositionHolder {
+	public final static class PositionHolder {
 		double lat;
 		double lon;
 		int zoom;
@@ -665,6 +668,41 @@ public class FreeMindMapController extends JMapController implements
 					+ zoom + "]";
 		}
 
+		public Coordinate getCoordinate() {
+			return new Coordinate(lat, lon);
+		}
+
+		public int hashCode() {
+			final int prime = 31;
+			int result = 1;
+			long temp;
+			temp = Double.doubleToLongBits(lat);
+			result = prime * result + (int) (temp ^ (temp >>> 32));
+			temp = Double.doubleToLongBits(lon);
+			result = prime * result + (int) (temp ^ (temp >>> 32));
+			result = prime * result + zoom;
+			return result;
+		}
+
+		public boolean equals(Object obj) {
+			if (this == obj)
+				return true;
+			if (obj == null)
+				return false;
+			if (getClass() != obj.getClass())
+				return false;
+			PositionHolder other = (PositionHolder) obj;
+			if (Double.doubleToLongBits(lat) != Double
+					.doubleToLongBits(other.lat))
+				return false;
+			if (Double.doubleToLongBits(lon) != Double
+					.doubleToLongBits(other.lon))
+				return false;
+			if (zoom != other.zoom)
+				return false;
+			return true;
+		}
+
 	}
 
 	private final class MoveHomeAction extends AbstractAction implements
@@ -679,9 +717,9 @@ public class FreeMindMapController extends JMapController implements
 			if (posHolder == null) {
 				return;
 			}
-			Coordinate coordinates = new Coordinate(posHolder.lat,
-					posHolder.lon);
-			setCursorPosition(coordinates, null, posHolder.zoom);
+			setZoom(posHolder.zoom);
+			Coordinate coordinates = posHolder.getCoordinate();
+			setCursorPosition(coordinates);
 		}
 
 		public PositionHolder getPosHolder() {
@@ -827,6 +865,39 @@ public class FreeMindMapController extends JMapController implements
 
 	}
 
+	private final class LimitSearchToRegionAction extends AbstractAction
+			implements MenuItemSelectedListener {
+
+		public LimitSearchToRegionAction() {
+			super(getText("MapControllerPopupDialog.LimitSearchToRegionAction"));
+		}
+
+		public void actionPerformed(ActionEvent pE) {
+			mMapHook.toggleLimitSearchToRegion();
+			mMapHook.focusSearchTerm();
+		}
+
+		public boolean isSelected(JMenuItem pCheckItem, Action pAction) {
+			return mMapHook.isLimitSearchToRegion();
+		}
+
+	}
+
+	private final class GotoSearch extends AbstractAction {
+
+		public GotoSearch() {
+			super(getText("MapControllerPopupDialog.GotoSearch"));
+		}
+
+		public void actionPerformed(ActionEvent pE) {
+			if (!mMapHook.isSearchBarVisible()) {
+				mMapHook.toggleSearchBar();
+			} else {
+				mMapHook.focusSearchTerm();
+			}
+		}
+	}
+
 	private final class AddMapPictureToNode extends AbstractAction {
 
 		public AddMapPictureToNode() {
@@ -864,8 +935,7 @@ public class FreeMindMapController extends JMapController implements
 			if (mCurrentPopupPositionHolder == null) {
 				return;
 			}
-			setCursorPosition(mCurrentPopupPositionHolder.getPosition(), null,
-					0);
+			setCursorPosition(mCurrentPopupPositionHolder.getPosition());
 			Point pos = getMap().getMapPosition(
 					mCurrentPopupPositionHolder.getPosition(), true);
 			// unfold node (and its parents):
@@ -942,6 +1012,36 @@ public class FreeMindMapController extends JMapController implements
 			}
 			// Put link into clipboard.
 			Tools.getClipboard().setContents(new StringSelection(link), null);
+		}
+
+	}
+
+	private final class CopyCoordinatesToClipboardAction extends AbstractAction {
+
+		public CopyCoordinatesToClipboardAction() {
+			super(
+					getText("MapControllerPopupDialog.CopyCoordinatesToClipboardAction"));
+		}
+
+		public void actionPerformed(ActionEvent pE) {
+			String coordinates;
+			if (mCurrentPopupPositionHolder != null) {
+				coordinates = getCoordinates(mCurrentPopupPositionHolder
+						.getPosition());
+			} else {
+				coordinates = getCoordinates(getMap().getCursorPosition());
+			}
+			// Put Coordinates into clipboard.
+			Tools.getClipboard().setContents(new StringSelection(coordinates),
+					null);
+		}
+
+		/**
+		 * @param pCoordinate
+		 * @return
+		 */
+		private String getCoordinates(Coordinate pCoordinate) {
+			return pCoordinate.getLat() + " " + pCoordinate.getLon();
 		}
 
 	}
@@ -1083,7 +1183,6 @@ public class FreeMindMapController extends JMapController implements
 		mMouseHitsNodeTimer = new Timer(500, this);
 		mMouseHitsNodeTimer.setRepeats(false);
 		Action placeAction = new PlaceNodeAction();
-		Action removePlaceAction = new RemovePlaceNodeAction();
 		Action showAction = new ShowNodeAction();
 		mZoomInAction = new ZoomAction(1);
 		mZoomOutAction = new ZoomAction(-1);
@@ -1092,10 +1191,12 @@ public class FreeMindMapController extends JMapController implements
 		Action tileGridVisible = new TileGridVisible();
 		Action zoomControlsVisible = new ZoomControlsVisible();
 		Action searchControlVisible = new SearchControlVisible();
+		Action gotoSearch = new GotoSearch();
 		Action hideFoldedNodes = new HideFoldedNodes();
 		Action newNodeAction = new NewNodeAction();
 		Action maxmimalZoomToCursorAction = new MaxmimalZoomToCursorAction();
 		Action copyLinkToClipboardAction = new CopyLinkToClipboardAction();
+		Action copyCoordinatesToClipboardAction = new CopyCoordinatesToClipboardAction();
 		Action exportAction = new ExportMapAction();
 		/** Menu **/
 		StructuredMenuHolder menuHolder = new StructuredMenuHolder();
@@ -1104,12 +1205,21 @@ public class FreeMindMapController extends JMapController implements
 		menuHolder.addMenu(mainItem, "main/actions/.");
 		addAccelerator(menuHolder.addAction(placeAction, "main/actions/place"),
 				"keystroke_plugins/map/MapDialog_Place");
-		addAccelerator(menuHolder.addAction(removePlaceAction,
-				"main/actions/removeplace"),
-				"keystroke_plugins/map/MapDialog_RemovePlace");
 		menuHolder.addAction(exportAction, "main/actions/exportPng");
 		addAccelerator(menuHolder.addAction(pMapHook.getCloseAction(),
 				"main/actions/close"), "keystroke_plugins/map/MapDialog_Close");
+
+		JMenu searchItem = new JMenu(getText("MapControllerPopupDialog.Search"));
+		menuHolder.addMenu(searchItem, "main/search/.");
+		addAccelerator(menuHolder.addAction(searchControlVisible,
+				"main/search/showSearchControl"),
+				"keystroke_plugins/map/MapDialog_toggle_search");
+		addAccelerator(
+				menuHolder.addAction(gotoSearch, "main/search/gotoSearch"),
+				"keystroke_plugins/map/MapDialog_goto_search");
+		addAccelerator(menuHolder.addAction(new LimitSearchToRegionAction(),
+				"main/search/limitSearchToRegion"),
+				"keystroke_plugins/map/MapDialog_limitSearchToRegion");
 		JMenu viewItem = new JMenu(getText("MapControllerPopupDialog.Views"));
 		menuHolder.addMenu(viewItem, "main/view/.");
 		menuHolder.addAction(showAction, "main/view/showNode");
@@ -1127,7 +1237,9 @@ public class FreeMindMapController extends JMapController implements
 		menuHolder.addAction(tileGridVisible, "main/view/tileGridVisible");
 		menuHolder.addAction(zoomControlsVisible,
 				"main/view/zoomControlsVisible");
-		menuHolder.addAction(hideFoldedNodes, "main/view/hideFoldedNodes");
+		addAccelerator(menuHolder.addAction(hideFoldedNodes,
+				"main/view/hideFoldedNodes"),
+				"keystroke_plugins/map/MapDialog_hideFoldedNodes");
 		menuHolder.addSeparator("main/view/");
 		addAccelerator(
 				menuHolder.addAction(mZoomInAction, "main/view/ZoomInAction"),
@@ -1139,10 +1251,7 @@ public class FreeMindMapController extends JMapController implements
 		JMenu navigationItem = new JMenu(
 				getText("MapControllerPopupDialog.Navigation"));
 		menuHolder.addMenu(navigationItem, "main/navigation/.");
-		addAccelerator(menuHolder.addAction(searchControlVisible,
-				"main/navigation/showSearchControl"),
-				"keystroke_plugins/map/MapDialog_toggle_search");
-		menuHolder.addSeparator("main/navigation/");
+		// menuHolder.addSeparator("main/navigation/");
 		addAccelerator(menuHolder.addAction(new SetHomeAction(),
 				"main/navigation/SetHome"),
 				"keystroke_plugins/map/MapDialogSetHome");
@@ -1177,13 +1286,15 @@ public class FreeMindMapController extends JMapController implements
 		mMapDialog.setJMenuBar(mMenuBar);
 		/* Popup menu */
 		menuHolder.addAction(newNodeAction, "popup/newNode");
+		menuHolder.addAction(placeAction, "popup/place");
 		menuHolder.addSeparator("popup/");
 		menuHolder.addAction(maxmimalZoomToCursorAction,
 				"popup/maxmimalZoomToCursorAction");
 		menuHolder.addSeparator("popup/");
 		menuHolder.addAction(copyLinkToClipboardAction,
 				"popup/copyLinkToClipboardAction");
-		menuHolder.addAction(exportAction, "popup/exportPng");
+		menuHolder.addAction(copyCoordinatesToClipboardAction,
+				"popup/copyCoordinatesToClipboardAction");
 		menuHolder.updateMenus(mPopupMenu, "popup/");
 		/*
 		 * map location context menu
@@ -1207,6 +1318,9 @@ public class FreeMindMapController extends JMapController implements
 		menuHolder.addAction(new AddMapPictureToNode(),
 				"contextPopup/addPictureToNode");
 		menuHolder.updateMenus(getContextPopupMenu(), "contextPopup/");
+		menuHolder.addAction(maxmimalZoomToCursorAction,
+				"searchPopup/maxmimalZoomToCursorAction");
+		menuHolder.updateMenus(getSearchPopupMenu(), "searchPopup/");
 
 		mMapDialog.addKeyListener(this);
 	}
@@ -1222,7 +1336,7 @@ public class FreeMindMapController extends JMapController implements
 	 * @param pSelected
 	 * @return
 	 */
-	protected MapNodePositionHolder placeNodes(MindMapNode pSelected) {
+	protected MapNodePositionHolderBase placeNode(MindMapNode pSelected) {
 		MapNodePositionHolder hook = MapNodePositionHolder.getHook(pSelected);
 		if (hook == null) {
 			hook = addHookToNode(pSelected);
@@ -1249,7 +1363,8 @@ public class FreeMindMapController extends JMapController implements
 	}
 
 	public void removeNodePosition(MindMapNode selected) {
-		MapNodePositionHolder hook = MapNodePositionHolder.getHook(selected);
+		MapNodePositionHolderBase hook = MapNodePositionHolder
+				.getHook(selected);
 		if (hook != null) {
 			// double add == remove
 			addHookToNode(selected);
@@ -1289,7 +1404,7 @@ public class FreeMindMapController extends JMapController implements
 				x_min = Math.min(x_min, x);
 				y_min = Math.min(y_min, y);
 				if (node == selected) {
-					setCursorPosition(hook.getPosition(), null, 0);
+					setCursorPosition(hook.getPosition());
 					changeTileSource(hook.getTileSource(), map);
 				}
 			}
@@ -1326,39 +1441,49 @@ public class FreeMindMapController extends JMapController implements
 	public void setCursorPosition(MapNodePositionHolder hook, int zoom) {
 		Coordinate position = hook.getPosition();
 		Coordinate mapCenter = hook.getMapCenter();
-		setCursorPosition(position, mapCenter, zoom);
-	}
-
-	/**
-	 * @param position
-	 * @param mapCenter
-	 *            if null, the map center isn't changed.
-	 * @param zoom
-	 *            is only of relevance, if mapCenter != null
-	 */
-	protected void setCursorPosition(Coordinate position, Coordinate mapCenter,
-			int zoom) {
-		getMap().setCursorPosition(position);
+		setZoom(zoom);
 		if (mapCenter != null) {
-			if (zoom > getMaxZoom()) {
-				zoom = getMaxZoom();
-			}
 			// move map:
 			logger.fine("Set display position to " + mapCenter
 					+ " and cursor to " + position + " and zoom " + zoom
 					+ " where max zoom is " + getMaxZoom());
 			map.setDisplayPositionByLatLon(mapCenter.getLat(),
 					mapCenter.getLon(), zoom);
-		} else {
-			zoom = map.getZoom();
 		}
-		// is the cursor now visible? if not, display it directly.
+		setCursorPosition(position);
+	}
+
+	/**
+	 * Sets the cursor to the specified position and moves the display, such
+	 * that the cursor is visible.
+	 */
+	protected void setCursorPosition(Coordinate position) {
+		getMap().setCursorPosition(position);
+		// is the cursor now visible and the zoom correct? if not, display it
+		// directly.
 		if (map.getMapPosition(position, true) == null) {
 			map.setDisplayPositionByLatLon(position.getLat(),
-					position.getLon(), zoom);
-
+					position.getLon(), map.getZoom());
 		}
 		storeMapPosition(position);
+		for (Iterator it = mCursorPositionListeners.iterator(); it.hasNext();) {
+			CursorPositionListener listener = (CursorPositionListener) it
+					.next();
+			listener.cursorPositionChanged(position);
+		}
+	}
+
+	/**
+	 * Sets the zoom.
+	 */
+	protected void setZoom(int zoom) {
+		if (zoom > getMaxZoom()) {
+			zoom = getMaxZoom();
+		}
+		if (zoom == 0) {
+			zoom = map.getZoom();
+		}
+		map.setZoom(zoom);
 	}
 
 	/**
@@ -1399,7 +1524,7 @@ public class FreeMindMapController extends JMapController implements
 		MapNodePositionHolder hook;
 		List selecteds = Arrays.asList(new MindMapNode[] { selected });
 		mMindMapController.addHook(selected, selecteds,
-				MapNodePositionHolder.NODE_MAP_HOOK_NAME);
+				MapNodePositionHolderBase.NODE_MAP_HOOK_NAME);
 		hook = MapNodePositionHolder.getHook(selected);
 		return hook;
 	}
@@ -1547,8 +1672,7 @@ public class FreeMindMapController extends JMapController implements
 
 	public void setCursorPosition(MouseEvent e) {
 		final Coordinate coordinates = map.getPosition(e.getPoint());
-		storeMapPosition(coordinates);
-		getMap().setCursorPosition(coordinates);
+		setCursorPosition(coordinates);
 	}
 
 	public void mousePressed(MouseEvent e) {
@@ -1569,8 +1693,10 @@ public class FreeMindMapController extends JMapController implements
 				return;
 			}
 			// detect collision with map marker:
-			MapNodePositionHolder posHolder = checkHit(e);
-			if (posHolder != null) {
+			MapMarkerBase mapMarker = checkHit(e);
+			if (mapMarker instanceof MapMarkerLocation) {
+				MapNodePositionHolder posHolder = ((MapMarkerLocation) mapMarker)
+						.getNodePositionHolder();
 				mDragStartingPoint = new Point(e.getPoint());
 				correctPointByMapCenter(mDragStartingPoint);
 				isMapNodeMoving = true;
@@ -1588,26 +1714,22 @@ public class FreeMindMapController extends JMapController implements
 		dragStartingPoint.translate(center.x, center.y);
 	}
 
-	public MapNodePositionHolder checkHit(MouseEvent e) {
+	public MapMarkerBase checkHit(MouseEvent e) {
 		// check for hit on map marker:
-		for (Iterator it = mMapHook.getMarkerMap().entrySet().iterator(); it
-				.hasNext();) {
-			Entry holder = (Entry) it.next();
-			MapNodePositionHolder posHolder = (MapNodePositionHolder) holder
-					.getKey();
-			MapMarkerLocation location = (MapMarkerLocation) holder.getValue();
-			Coordinate locationC = posHolder.getPosition();
+		for (Iterator it = map.getMapMarkerList().iterator(); it.hasNext();) {
+			MapMarkerBase location = (MapMarkerBase) it.next();
+			Coordinate locationC = location.getCoordinate();
 			Point locationXY = map.getMapPosition(locationC, true);
 			if (locationXY == null) {
 				continue;
 			}
 			boolean checkHitResult = location.checkHit(e.getX() - locationXY.x,
 					e.getY() - locationXY.y);
-			logger.fine("Checking for hit for location " + posHolder.getNode()
+			logger.fine("Checking for hit for location " + location
 					+ " at location " + locationXY + " to event " + e.getX()
 					+ " and " + e.getY() + " is " + checkHitResult);
 			if (checkHitResult) {
-				return posHolder;
+				return location;
 			}
 		}
 		return null;
@@ -1628,14 +1750,24 @@ public class FreeMindMapController extends JMapController implements
 		if (e.isPopupTrigger()) {
 			JPopupMenu popupmenu = getPopupMenu();
 			// check for hit on map marker:
-			MapNodePositionHolder posHolder = checkHit(e);
-			if (posHolder != null) {
+			MapMarkerBase mapMarker = checkHit(e);
+			if (mapMarker instanceof MapMarkerLocation) {
+				MapNodePositionHolder posHolder = ((MapMarkerLocation) mapMarker)
+						.getNodePositionHolder();
 				mCurrentPopupPositionHolder = posHolder;
-				setCursorPosition(posHolder.getPosition(), null, 0);
+				setCursorPosition(posHolder.getPosition());
 				getContextPopupMenu()
 						.show(e.getComponent(), e.getX(), e.getY());
 				e.consume();
 				return;
+			}
+			if (mapMarker instanceof MapSearchMarkerLocation) {
+				MapSearchMarkerLocation location = (MapSearchMarkerLocation) mapMarker;
+				setCursorPosition(location.getCoordinate());
+				getSearchPopupMenu().show(e.getComponent(), e.getX(), e.getY());
+				e.consume();
+				return;
+
 			}
 			mCurrentPopupPositionHolder = null;
 			if (popupmenu != null) {
@@ -1683,6 +1815,12 @@ public class FreeMindMapController extends JMapController implements
 	private MoveBackwardAction mMoveBackwardAction;
 
 	JMenuBar mMenuBar;
+
+	private long mWheelZoomLastTime = 0;
+
+	private Vector mCursorPositionListeners = new Vector();
+
+	private JPopupMenu mSearchPopupMenu;
 
 	public void mouseReleased(MouseEvent e) {
 		if (!mClickEnabled) {
@@ -1766,22 +1904,31 @@ public class FreeMindMapController extends JMapController implements
 	}
 
 	protected void storeMapPosition(final Coordinate coordinates) {
-		// if position is not at the end, the locations in front are deleted.
-		while(getPositionHolderIndex() < getPositionHolderVector().size()-1){
-			getPositionHolderVector().remove(getPositionHolderVector().size()-1);			
-		}
 		final PositionHolder holder = new PositionHolder(coordinates.getLat(),
 				coordinates.getLon(), getMap().getZoom());
-		setPositionHolderIndex(getPositionHolderIndex() + 1);
+		final Vector positionHolderVector = getPositionHolderVector();
+		if (getPositionHolderIndex() >= 0) {
+			// check for equalness
+			PositionHolder currentPosition = (PositionHolder) positionHolderVector
+					.get(getPositionHolderIndex());
+			if (currentPosition.equals(holder)) {
+				return;
+			}
+		}
+		// if position is not at the end, the locations in front are deleted.
+		while (getPositionHolderIndex() < positionHolderVector.size() - 1) {
+			positionHolderVector.remove(positionHolderVector.size() - 1);
+		}
 		logger.info("Storing position " + holder + " at index "
 				+ getPositionHolderIndex());
-		getPositionHolderVector().insertElementAt(holder,
-				getPositionHolderIndex());
+		positionHolderVector.insertElementAt(holder,
+				getPositionHolderIndex() + 1);
+		setPositionHolderIndex(getPositionHolderIndex() + 1);
 		// assure that max size is below limit.
-		while (getPositionHolderVector().size() >= POSITION_HOLDER_LIMIT
+		while (positionHolderVector.size() >= POSITION_HOLDER_LIMIT
 				&& getPositionHolderIndex() > 0) {
-			getPositionHolderVector().remove(0);
 			setPositionHolderIndex(getPositionHolderIndex() - 1);
+			positionHolderVector.remove(0);
 		}
 		// update actions
 		mMoveForwardAction.setEnabled(mMoveForwardAction.isEnabled());
@@ -1800,7 +1947,20 @@ public class FreeMindMapController extends JMapController implements
 
 	public void mouseWheelMoved(MouseWheelEvent e) {
 		if (mWheelZoomEnabled) {
-			map.setZoom(map.getZoom() - e.getWheelRotation(), e.getPoint());
+			/*
+			 * This is problematic under Mac as the zoom is too fast. First
+			 * idea: looking for the last time the zoom was changed. It must not
+			 * be changed within 100ms again. Moreover, limit the rotation
+			 * number.
+			 */
+			if (System.currentTimeMillis() - mWheelZoomLastTime >= WHEEL_ZOOM_MINIMAL_TIME_BETWEEN_CHANGES) {
+				int wheelRotation = e.getWheelRotation();
+				if (Math.abs(wheelRotation) > 2) {
+					wheelRotation = (int) (2 * Math.signum(wheelRotation));
+				}
+				map.setZoom(map.getZoom() - wheelRotation, e.getPoint());
+				mWheelZoomLastTime = System.currentTimeMillis();
+			}
 		}
 	}
 
@@ -1831,6 +1991,14 @@ public class FreeMindMapController extends JMapController implements
 			mContextPopupMenu.addPopupMenuListener(popupListenerSingleton);
 		}
 		return mContextPopupMenu;
+	}
+
+	public JPopupMenu getSearchPopupMenu() {
+		if (mSearchPopupMenu == null) {
+			mSearchPopupMenu = new JPopupMenu();
+			mSearchPopupMenu.addPopupMenuListener(popupListenerSingleton);
+		}
+		return mSearchPopupMenu;
 	}
 
 	/**
@@ -1910,25 +2078,25 @@ public class FreeMindMapController extends JMapController implements
 				map.getZoom());
 		Coordinate cursorPosition = new Coordinate(pPlace.getLat(),
 				pPlace.getLon());
-		getMap().setCursorPosition(cursorPosition);
-		storeMapPosition(cursorPosition);
+		setCursorPosition(cursorPosition);
 	}
 
 	/**
 	 * @return true, if ok, false if error.
 	 */
-	public boolean search(SearchResultListModel dataModel, JList mResultList,
-			String mSearchText, Color mListOriginalBackgroundColor) {
+	public boolean search(MapDialog.ResultTableModel dataModel,
+			JTable mResultTable, String mSearchText,
+			Color mTableOriginalBackgroundColor) {
 		// Display hour glass
 		boolean returnValue = true;
 		setCursor(Cursor.WAIT_CURSOR, true);
 		try {
 			dataModel.clear();
 			// doesn't work due to event thread...
-			mResultList.setBackground(Color.GRAY);
+			mResultTable.setBackground(Color.GRAY);
 			Searchresults results = getSearchResults(mSearchText);
 			if (results == null) {
-				mResultList.setBackground(Color.red);
+				mResultTable.setBackground(Color.RED);
 			} else {
 				for (Iterator it = results.getListPlaceList().iterator(); it
 						.hasNext();) {
@@ -1936,15 +2104,18 @@ public class FreeMindMapController extends JMapController implements
 					logger.fine("Found place " + place.getDisplayName());
 					// error handling, if the query wasn't successful.
 					if (Tools.safeEquals("ERROR", place.getOsmType())) {
-						mResultList.setBackground(Color.red);
+						mResultTable.setBackground(Color.RED);
+						returnValue = false;
+					} else if (Tools.safeEquals("WARNING", place.getOsmType())) {
+						mResultTable.setBackground(Color.YELLOW);
 						returnValue = false;
 					} else {
-						mResultList.setBackground(Color.WHITE);
-						mResultList.setBackground(mListOriginalBackgroundColor);
+						mResultTable.setBackground(Color.WHITE);
+						mResultTable
+								.setBackground(mTableOriginalBackgroundColor);
 					}
 					dataModel.addPlace(place);
 				}
-
 			}
 		} catch (Exception e) {
 			freemind.main.Resources.getInstance().logException(e);
@@ -1962,11 +2133,26 @@ public class FreeMindMapController extends JMapController implements
 		String result = "unknown";
 		Searchresults results = new Searchresults();
 		StringBuilder b = new StringBuilder();
+		boolean limitSearchToRegion = mMapHook.isLimitSearchToRegion();
 		try {
 			if (true) {
-				b.append("http://nominatim.openstreetmap.org/search/?q="); //$NON-NLS-1$
+				b.append("http://nominatim.openstreetmap.org/search/?email=christianfoltin%40users.sourceforge.net&q="); //$NON-NLS-1$
 				b.append(URLEncoder.encode(pText, "UTF-8"));
 				b.append("&format=xml&limit=30&accept-language=").append(Locale.getDefault().getLanguage()); //$NON-NLS-1$
+				if (limitSearchToRegion) {
+					Coordinate topLeftCorner = getMap().getPosition(0, 0);
+					Coordinate bottomRightCorner = getMap().getPosition(
+							getMap().getWidth(), getMap().getHeight());
+					b.append("&viewbox=");
+					b.append(topLeftCorner.getLon());
+					b.append(",");
+					b.append(bottomRightCorner.getLat());
+					b.append(",");
+					b.append(bottomRightCorner.getLon());
+					b.append(",");
+					b.append(topLeftCorner.getLat());
+					b.append("&bounded=1");
+				}
 				logger.fine("Searching for " + b.toString());
 				URL url = new URL(b.toString());
 				URLConnection urlConnection = url.openConnection();
@@ -1994,6 +2180,129 @@ public class FreeMindMapController extends JMapController implements
 						+ "  <place place_id=\"26135863\" osm_type=\"way\" osm_id=\"18777572\" place_rank=\"27\" boundingbox=\"38.6950759887695,38.6965446472168,-91.1586227416992,-91.1520233154297\" lat=\"38.6957456083531\" lon=\"-91.1552550683042\" display_name=\"Innsbruck, Warren, Aspenhoff, Warren County, Missouri, United States of America\" class=\"highway\" type=\"service\"/>\n"
 						+ "  <place place_id=\"25440203\" osm_type=\"way\" osm_id=\"18869491\" place_rank=\"27\" boundingbox=\"43.5335311889648,43.5358810424805,-71.1356735229492,-71.1316146850586\" lat=\"43.5341678362733\" lon=\"-71.1338615946084\" display_name=\"Innsbruck, New Durham, Strafford County, New Hampshire, 03855, United States of America\" class=\"highway\" type=\"service\"/>\n"
 						+ "</searchresults>";
+				result = "<?xml version=\"1.0\" encoding=\"UTF-8\""
+						+ " ?><searchresults timestamp='Wed, 29 Aug"
+						+ " 12 06:33:22 +0100' attribution='Data Co"
+						+ "pyright OpenStreetMap Contributors, Some"
+						+ " Rights Reserved. CC-BY-SA 2.0.' queryst"
+						+ "ring='bäckerei' polygon='false' exclude_"
+						+ "place_ids='2323884,1350101,7261519,17658"
+						+ "198,16228926,7825940,8072208,16133988,51"
+						+ "52777,7708711,16471512,7844042,12267468,"
+						+ "6699146,7114466,6856494,856383,9874163,7"
+						+ "135888,868611,11403029,6568269,16118527,"
+						+ "7540110,11628259,1339026,19587330,115253"
+						+ "72,11534612,11748035' more_url='http://n"
+						+ "ominatim.openstreetmap.org/search?format"
+						+ "=xml&amp;exclude_place_ids=2323884,13501"
+						+ "01,7261519,17658198,16228926,7825940,807"
+						+ "2208,16133988,5152777,7708711,16471512,7"
+						+ "844042,12267468,6699146,7114466,6856494,"
+						+ "856383,9874163,7135888,868611,11403029,6"
+						+ "568269,16118527,7540110,11628259,1339026"
+						+ ",19587330,11525372,11534612,11748035&amp"
+						+ ";accept-language=de&amp;viewbox=13.24470"
+						+ "5200195312%2C52.43435075954755%2C13.3324"
+						+ "2416381836%2C52.461762311435194&amp;q=b%"
+						+ "C3%A4ckerei'><place place_id='2323884' o"
+						+ "sm_type='node' osm_id='352983574' place_"
+						+ "rank='30' boundingbox=\"52.443815460205,"
+						+ "52.463819274902,13.313097229004,13.33309"
+						+ "8182678\" lat='52.4538175' lon='13.32309"
+						+ "74' display_name='Bäckerei Mälzer, Schüt"
+						+ "zenstraße, Steglitz, Steglitz-Zehlendorf"
+						+ ", Berlin, 12165, Deutschland' class='sho"
+						+ "p' type='bakery' icon='http://nominatim."
+						+ "openstreetmap.org/images/mapicons/shoppi"
+						+ "ng_bakery.p.20.png'/><place place_id='13"
+						+ "50101' osm_type='node' osm_id='298794800"
+						+ "' place_rank='30' boundingbox=\"52.43134"
+						+ "9029541,52.451352844238,13.282660713196,"
+						+ "13.30266166687\" lat='52.4413499' lon='1"
+						+ "3.2926616' display_name='Bäckerei Bertra"
+						+ "m, 27, Curtiusstraße, Lichterfelde, Steg"
+						+ "litz-Zehlendorf, Berlin, 12205, Deutschl"
+						+ "and' class='shop' type='bakery' icon='ht"
+						+ "tp://nominatim.openstreetmap.org/images/"
+						+ "mapicons/shopping_bakery.p.20.png'/><pla"
+						+ "ce place_id='7261519' osm_type='node' os"
+						+ "m_id='792690678' place_rank='30' boundin"
+						+ "gbox=\"52.434942474365,52.454946289062,1"
+						+ "3.282605400085,13.30260635376\" lat='52."
+						+ "444945' lon='13.292606' display_name='Kn"
+						+ "ese-Bäckerei, Knesebeckstraße, Lichterfe"
+						+ "lde, Steglitz-Zehlendorf, Berlin, 12205,"
+						+ " Deutschland' class='shop' type='bakery'"
+						+ " icon='http://nominatim.openstreetmap.or"
+						+ "g/images/mapicons/shopping_bakery.p.20.p"
+						+ "ng'/><place place_id='17658198' osm_type"
+						+ "='node' osm_id='1655185388' place_rank='"
+						+ "30' boundingbox=\"52.426340332031,52.446"
+						+ "344146728,13.256445159912,13.27644611358"
+						+ "6\" lat='52.4363419' lon='13.2664454' di"
+						+ "splay_name='Bäckerei Strauch, Berliner S"
+						+ "traße, Zehlendorf, Steglitz-Zehlendorf, "
+						+ "Berlin, 14169, Deutschland' class='shop'"
+						+ " type='bakery' icon='http://nominatim.op"
+						+ "enstreetmap.org/images/mapicons/shopping"
+						+ "_bakery.p.20.png'/><place place_id='1622"
+						+ "8926' osm_type='node' osm_id='1455112119"
+						+ "' place_rank='30' boundingbox=\"52.43713"
+						+ "973999,52.457143554687,13.296548118591,1"
+						+ "3.316549072266\" lat='52.4471403' lon='1"
+						+ "3.3065482' display_name='Bäckerei Hillma"
+						+ "nn, 52, Moltkestraße, Lichterfelde, Steg"
+						+ "litz-Zehlendorf, Berlin, 12203, Deutschl"
+						+ "and' class='shop' type='bakery' icon='ht"
+						+ "tp://nominatim.openstreetmap.org/images/"
+						+ "mapicons/shopping_bakery.p.20.png'/><pla"
+						+ "ce place_id='7825940' osm_type='node' os"
+						+ "m_id='803776974' place_rank='30' boundin"
+						+ "gbox=\"52.447733154297,52.467736968994,1"
+						+ "3.280044784546,13.30004573822\" lat='52."
+						+ "4577338' lon='13.2900455' display_name='"
+						+ "Wiener Feinbäcker Heberer, Brümmerstraße"
+						+ ", Dahlem, Steglitz-Zehlendorf, Berlin, 1"
+						+ "4195, Deutschland' class='shop' type='ba"
+						+ "kery' icon='http://nominatim.openstreetm"
+						+ "ap.org/images/mapicons/shopping_bakery.p"
+						+ ".20.png'/><place place_id='8072208' osm_"
+						+ "type='node' osm_id='814072915' place_ran"
+						+ "k='30' boundingbox=\"52.430979003906,52."
+						+ "450982818603,13.279904594421,13.29990554"
+						+ "8096\" lat='52.4409802' lon='13.2899047'"
+						+ " display_name='Brotmeisterei Steinecke, "
+						+ "36-38, Curtiusstraße, Lichterfelde, Steg"
+						+ "litz-Zehlendorf, Berlin, 12205, Deutschl"
+						+ "and' class='shop' type='bakery' icon='ht"
+						+ "tp://nominatim.openstreetmap.org/images/"
+						+ "mapicons/shopping_bakery.p.20.png'/><pla"
+						+ "ce place_id='16133988' osm_type='node' o"
+						+ "sm_id='1391486692' place_rank='30' bound"
+						+ "ingbox=\"52.44658493042,52.466588745117,"
+						+ "13.310922851563,13.330923805237\" lat='5"
+						+ "2.4565867' lon='13.3209229' display_name"
+						+ "='Wiedemann, Albrechtstraße, Steglitz, S"
+						+ "teglitz-Zehlendorf, Berlin, 12165, Deuts"
+						+ "chland' class='shop' type='bakery' icon="
+						+ "'http://nominatim.openstreetmap.org/imag"
+						+ "es/mapicons/shopping_bakery.p.20.png'/><"
+						+ "place place_id='5152777' osm_type='node'"
+						+ " osm_id='570034727' place_rank='30' boun"
+						+ "dingbox=\"52.441808929443,52.46181274414"
+						+ "1,13.320470085144,13.340471038818\" lat="
+						+ "'52.4518101' lon='13.3304701' display_na"
+						+ "me='Konditorei Rabien, Klingsorstraße, S"
+						+ "teglitz, Steglitz-Zehlendorf, Berlin, 12"
+						+ "167, Deutschland' class='shop' type='bak"
+						+ "ery' icon='http://nominatim.openstreetma"
+						+ "p.org/images/mapicons/shopping_bakery.p."
+						+ "20.png'/></searchresults>";
+				// result = XML_VERSION_1_0_ENCODING_UTF_8
+				// +
+				// "<searchresults timestamp=\"Tue, 08 Nov 11 22:49:54 -0500\" attribution=\"Data Copyright OpenStreetMap Contributors, Some Rights Reserved. CC-BY-SA 2.0.\" querystring=\"innsbruck\" polygon=\"false\" exclude_place_ids=\"228452,25664166,26135863,25440203\" more_url=\"http://open.mapquestapi.com/nominatim/v1/search?format=xml&amp;exclude_place_ids=228452,25664166,26135863,25440203&amp;accept-language=&amp;q=innsbruck\">\n"
+				// + "</searchresults>";
+
 			}
 			results = (Searchresults) XmlBindingTools.getInstance().unMarshall(
 					result);
@@ -2002,17 +2311,28 @@ public class FreeMindMapController extends JMapController implements
 			}
 		} catch (Exception e) {
 			logger.fine("Searching for " + b.toString() + " gave an error");
+			final String errorString = e.toString();
 			freemind.main.Resources.getInstance().logException(e);
 			logger.warning("Result was " + result);
-			Place place = new Place();
-			place.setDisplayName(e.toString());
-			place.setOsmType("ERROR");
-			Coordinate cursorPosition = getMap().getCursorPosition();
-			place.setLat(cursorPosition.getLat());
-			place.setLon(cursorPosition.getLon());
-			results.addPlace(place);
+			results.addPlace(getErrorPlace(errorString, "ERROR"));
+		}
+		if (limitSearchToRegion && results.getListPlaceList().isEmpty()) {
+			results.addPlace(getErrorPlace(
+					mMindMapController
+							.getText("plugins.map.FreeMindMapController.LimitedSearchWithoutResult"),
+					"WARNING"));
 		}
 		return results;
+	}
+
+	protected Place getErrorPlace(final String errorString, String errorLevel) {
+		Place place = new Place();
+		place.setDisplayName(errorString);
+		place.setOsmType(errorLevel);
+		Coordinate cursorPosition = getMap().getCursorPosition();
+		place.setLat(cursorPosition.getLat());
+		place.setLon(cursorPosition.getLon());
+		return place;
 	}
 
 	public boolean isClickEnabled() {
@@ -2034,13 +2354,18 @@ public class FreeMindMapController extends JMapController implements
 	 * java.awt.event.ActionListener#actionPerformed(java.awt.event.ActionEvent)
 	 */
 	public void actionPerformed(ActionEvent pE) {
-		// here, we look wether or not the cursor is above a node.
-		MapNodePositionHolder posHolder = checkHit(mTimerMouseEvent);
-		logger.fine("Looking for hit on node " + posHolder);
 		String statusText = "";
-		if (posHolder != null) {
-			statusText = Tools.getNodeTextHierarchy(posHolder.getNode(),
-					mMapHook.getMindMapController()) + ". ";
+		// here, we look wether or not the cursor is above a node.
+		MapMarkerBase mapMarker = checkHit(mTimerMouseEvent);
+		if (mapMarker instanceof MapMarkerLocation) {
+			MapNodePositionHolder posHolder = ((MapMarkerLocation) mapMarker)
+					.getNodePositionHolder();
+
+			logger.fine("Looking for hit on node " + posHolder);
+			if (posHolder != null) {
+				statusText = Tools.getNodeTextHierarchy(posHolder.getNode(),
+						mMapHook.getMindMapController()) + ". ";
+			}
 		}
 		// calculate the distance to the cursor
 		Coordinate coordinate = getCoordinateFromMouseEvent(mTimerMouseEvent);
@@ -2048,13 +2373,15 @@ public class FreeMindMapController extends JMapController implements
 		double distance = OsmMercator.getDistance(coordinate.getLat(),
 				coordinate.getLon(), cursorPosition.getLat(),
 				cursorPosition.getLon()) / 1000.0;
-		Object[] messageArguments = { new Double(distance) };
+		Object[] messageArguments = { new Double(distance),
+				new Double(coordinate.getLat()),
+				new Double(coordinate.getLon()) };
 		MessageFormat formatter = new MessageFormat(
-				mMindMapController.getText("plugins/map/MapDialog_Distance"));
+				mMindMapController
+						.getText("plugins/map/MapDialog_Distance"));
 		String message = formatter.format(messageArguments);
 		statusText += message;
 		mMapHook.getStatusLabel().setText(statusText);
-
 	}
 
 	protected void selectContextMenuNode() {
@@ -2149,16 +2476,36 @@ public class FreeMindMapController extends JMapController implements
 		}
 	}
 
-	private Vector getPositionHolderVector() {
-		return mMapHook.getRegistration().getPositionHolderVector();
+	public Vector getPositionHolderVector() {
+		return mPositionHolderVector;
 	}
 
-	private int getPositionHolderIndex() {
-		return mMapHook.getRegistration().getPositionHolderIndex();
+	public int getPositionHolderIndex() {
+		return mPositionHolderIndex;
 	}
 
-	private void setPositionHolderIndex(int positionHolderIndex) {
-		mMapHook.getRegistration().setPositionHolderIndex(positionHolderIndex);
+	/**
+	 * @param positionHolderIndex
+	 * @return true, if positionHolderIndex is ok.
+	 */
+	public boolean checkPositionHolderIndex(int positionHolderIndex) {
+		return !(positionHolderIndex < -1 || positionHolderIndex >= mPositionHolderVector
+				.size());
+	}
+
+	public void setPositionHolderIndex(int positionHolderIndex) {
+		if (!checkPositionHolderIndex(positionHolderIndex)) {
+			throw new IllegalArgumentException("Index out of range "
+					+ positionHolderIndex);
+		}
+		mPositionHolderIndex = positionHolderIndex;
+	}
+
+	/**
+	 * @param pListener
+	 */
+	public void addCursorPositionListener(CursorPositionListener pListener) {
+		mCursorPositionListeners.add(pListener);
 	}
 
 }
