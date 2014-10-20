@@ -93,10 +93,8 @@ public class MapDialog extends MindMapHookAdapter implements
 
 	private JCursorMapViewer map = null;
 
-	private JLabel zoomLabel = null;
 	private JLabel zoomValue = null;
 
-	private JLabel mperpLabelName = null;
 	private JLabel mperpLabelValue = null;
 
 	private MindMapController mMyMindMapController;
@@ -343,9 +341,12 @@ public class MapDialog extends MindMapHookAdapter implements
 		map = new JCursorMapViewer(getMindMapController(), mMapDialog,
 				getRegistration().getTileCache(), this);
 		map.addJMVListener(this);
+		map.setScrollWrapEnabled(true);
 		FreeMindMapController.changeTileSource(Mapnik.class.getName(), map);
 		OsmTileLoader loader = getRegistration().createTileLoader(map);
 		map.setTileLoader(loader);
+		map.setCursorPosition(new Coordinate(49.8, 8.8));
+		map.setUseCursor(true);
 
 		mMapDialog.setLayout(new BorderLayout());
 		mSearchPanel = new JPanel(new BorderLayout());
@@ -375,7 +376,8 @@ public class MapDialog extends MindMapHookAdapter implements
 		mResultTable = new JTable();
 		mTableOriginalBackgroundColor = mResultTable.getBackground();
 
-		mResultTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+		mResultTable
+				.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
 		mResultTable.addKeyListener(new KeyAdapter() {
 			public void keyPressed(KeyEvent pEvent) {
 				int index = mResultTable.getSelectedRow();
@@ -391,6 +393,13 @@ public class MapDialog extends MindMapHookAdapter implements
 						&& pEvent.getModifiers() == 0 && index >= 0) {
 					logger.info("Set result in map.");
 					pEvent.consume();
+					displaySearchItem(index);
+					return;
+				}
+				if (pEvent.getKeyCode() == KeyEvent.VK_ENTER
+						&& pEvent.isControlDown() && index >= 0) {
+					pEvent.consume();
+					addSearchResultsToMap();
 					displaySearchItem(index);
 					return;
 				}
@@ -493,8 +502,6 @@ public class MapDialog extends MindMapHookAdapter implements
 		mStatusLabel = new JLabel(" ");
 		mMapDialog.add(mStatusLabel, BorderLayout.SOUTH);
 
-		map.setCursorPosition(new Coordinate(49.8, 8.8));
-		map.setUseCursor(true);
 		getRegistration().registerMapNodePositionListener(this);
 		getRegistration().registerNodeVisibilityListener(this);
 		getMindMapController().registerNodeSelectionListener(this, true);
@@ -519,28 +526,30 @@ public class MapDialog extends MindMapHookAdapter implements
 						setting.getColumnSorting());
 				column++;
 			}
-			mLastDividerPosition = storage.getLastDividerPosition();
 			// default is false, so if true, toggle it.
-			if(storage.getLimitSearchToVisibleArea()) {
+			if (storage.getLimitSearchToVisibleArea()) {
 				toggleLimitSearchToRegion();
 			}
 			if (!storage.getSearchControlVisible()) {
 				toggleSearchBar();
-			} else {
-				mSearchSplitPane.setDividerLocation(mLastDividerPosition);
 			}
+			mLastDividerPosition = storage.getLastDividerPosition();
+			mSearchSplitPane.setDividerLocation(mLastDividerPosition);
 			// restore last map positions
-			final Vector positionHolderVector = getFreeMindMapController().getPositionHolderVector();
+			final Vector positionHolderVector = getFreeMindMapController()
+					.getPositionHolderVector();
 			for (Iterator it = storage.getListMapLocationStorageList()
 					.iterator(); it.hasNext();) {
 				MapLocationStorage location = (MapLocationStorage) it.next();
-				positionHolderVector.add(
-						new FreeMindMapController.PositionHolder(location
+				positionHolderVector
+						.add(new FreeMindMapController.PositionHolder(location
 								.getCursorLatitude(), location
 								.getCursorLongitude(), location.getZoom()));
 			}
-			if(getFreeMindMapController().checkPositionHolderIndex(storage.getMapLocationStorageIndex())) {
-				getFreeMindMapController().setPositionHolderIndex(storage.getMapLocationStorageIndex());
+			if (getFreeMindMapController().checkPositionHolderIndex(
+					storage.getMapLocationStorageIndex())) {
+				getFreeMindMapController().setPositionHolderIndex(
+						storage.getMapLocationStorageIndex());
 			}
 			// TODO: Better would be to store these data per map.
 			map.setDisplayPositionByLatLon(storage.getMapCenterLatitude(),
@@ -549,7 +558,7 @@ public class MapDialog extends MindMapHookAdapter implements
 					storage.getCursorLatitude(), storage.getCursorLongitude());
 			getFreeMindMapController().setCursorPosition(position);
 			FreeMindMapController
-			.changeTileSource(storage.getTileSource(), map);
+					.changeTileSource(storage.getTileSource(), map);
 		}
 		addMarkersToMap();
 		mMapDialog.setVisible(true);
@@ -588,11 +597,11 @@ public class MapDialog extends MindMapHookAdapter implements
 
 	public void toggleSearchBar(AWTEvent pEvent) {
 		if (mSearchBarVisible) {
+			mLastDividerPosition = mSearchSplitPane.getDividerLocation();
+			logger.fine("Setting last divider to " + mLastDividerPosition);
 			// clear results
 			mResultTableModel.clear();
 			// hide search bar
-			mLastDividerPosition = mSearchSplitPane.getDividerLocation();
-			logger.info("Setting last divider to " + mLastDividerPosition);
 			mSearchSplitPane.setBottomComponent(null);
 			mMapDialog.remove(mSearchSplitPane);
 			mMapDialog.add(map, BorderLayout.CENTER);
@@ -719,15 +728,18 @@ public class MapDialog extends MindMapHookAdapter implements
 			setting.setColumnSorting(mResultTableSorter.getSortingStatus(i));
 			storage.addTableColumnSetting(setting);
 		}
-		for (Iterator it = getFreeMindMapController().getPositionHolderVector().iterator(); it.hasNext();) {
-			FreeMindMapController.PositionHolder pos = (FreeMindMapController.PositionHolder) it.next();
+		for (Iterator it = getFreeMindMapController().getPositionHolderVector()
+				.iterator(); it.hasNext();) {
+			FreeMindMapController.PositionHolder pos = (FreeMindMapController.PositionHolder) it
+					.next();
 			MapLocationStorage mapLocationStorage = new MapLocationStorage();
 			mapLocationStorage.setCursorLatitude(pos.lat);
 			mapLocationStorage.setCursorLongitude(pos.lon);
 			mapLocationStorage.setZoom(pos.zoom);
 			storage.addMapLocationStorage(mapLocationStorage);
 		}
-		storage.setMapLocationStorageIndex(getFreeMindMapController().getPositionHolderIndex());
+		storage.setMapLocationStorageIndex(getFreeMindMapController()
+				.getPositionHolderIndex());
 		getMindMapController().storeDialogPositions(mMapDialog, storage,
 				WINDOW_PREFERENCE_STORAGE_PROPERTY);
 
@@ -935,16 +947,22 @@ public class MapDialog extends MindMapHookAdapter implements
 	}
 
 	public void displaySearchItem(int index) {
-		if(index < 0) {
-			throw new IllegalArgumentException("Index " + index + " out of bounds.");
-		}
-		index = mResultTableSorter.modelIndex(index);
-		Place place = mResultTableModel.getPlace(index);
+		Place place = getPlace(index);
 		getFreeMindMapController().setCursorPosition(place);
 		if (mSingleSearch && isSearchBarVisible()) {
 			toggleSearchBar();
 		}
 		mSingleSearch = false;
+	}
+
+	public Place getPlace(int index) {
+		if (index < 0) {
+			throw new IllegalArgumentException("Index " + index
+					+ " out of bounds.");
+		}
+		index = mResultTableSorter.modelIndex(index);
+		Place place = mResultTableModel.getPlace(index);
+		return place;
 	}
 
 	public JDialog getMapDialog() {
@@ -975,17 +993,17 @@ public class MapDialog extends MindMapHookAdapter implements
 		boolean resultOk = getFreeMindMapController().search(mResultTableModel,
 				mResultTable, searchText, mTableOriginalBackgroundColor);
 		final int rowCount = mResultTableModel.getRowCount();
-		if (resultOk && pSelectFirstResult) {
-			if (rowCount > 0) {
-				displaySearchItem(0);
-			}
-		}
-		if (mSingleSearch && rowCount == 1) {
-			displaySearchItem(0);
-			this.map.requestFocus();
-			return;
-		}
 		if (resultOk) {
+			if (mSingleSearch && rowCount == 1) {
+				displaySearchItem(0);
+				this.map.requestFocus();
+				return;
+			}
+			if (pSelectFirstResult) {
+				if (rowCount > 0) {
+					displaySearchItem(0);
+				}
+			}
 			mResultTable.requestFocus();
 		} else {
 			mSearchTerm.requestFocus();
@@ -1019,5 +1037,11 @@ public class MapDialog extends MindMapHookAdapter implements
 			mSearchStringLabel.setText(mResourceSearchString);
 		}
 		mSearchStringLabel.validate();
+	}
+
+	protected void addSearchResultsToMap() {
+		int[] selectedRows = mResultTable.getSelectedRows();
+		logger.info("Add results to map.");
+		getFreeMindMapController().addSearchResultsToMap(selectedRows);
 	}
 }

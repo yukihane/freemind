@@ -16,7 +16,7 @@
  *along with this program; if not, write to the Free Software
  *Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
-/* $Id: MindMapMapModel.java,v 1.36.14.16.2.39 2010/12/23 22:55:21 christianfoltin Exp $ */
+
 
 package freemind.modes.mindmapmode;
 
@@ -48,7 +48,6 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.Vector;
 
-import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 
 import freemind.common.OptionalDontShowMeAgainDialog;
@@ -60,7 +59,6 @@ import freemind.main.HtmlTools;
 import freemind.main.Resources;
 import freemind.main.Tools;
 import freemind.main.XMLParseException;
-import freemind.modes.LinkRegistryAdapter;
 import freemind.modes.MapAdapter;
 import freemind.modes.MindMapLinkRegistry;
 import freemind.modes.MindMapNode;
@@ -99,7 +97,7 @@ public class MindMapMapModel extends MapAdapter {
 				: new DummyLockManager();
 
 		// register new LinkRegistryAdapter
-		linkRegistry = new LinkRegistryAdapter();
+		linkRegistry = new MindMapLinkRegistry();
 
 		if (root == null)
 			root = new MindMapNodeModel(frame.getResourceString("new_mindmap"),

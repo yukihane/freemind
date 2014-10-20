@@ -17,7 +17,6 @@
  * this program; if not, write to the Free Software Foundation, Inc., 59 Temple
  * Place - Suite 330, Boston, MA 02111-1307, USA.
  */
-/* $Id: Tools.java,v 1.17.18.9.2.58 2010/12/23 22:55:21 christianfoltin Exp $ */
 
 package freemind.main;
 
@@ -42,7 +41,6 @@ import java.awt.datatransfer.Transferable;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
-import java.awt.print.PageFormat;
 import java.awt.print.Paper;
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
@@ -58,20 +56,26 @@ import java.io.StringReader;
 import java.io.StringWriter;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.net.URLDecoder;
 import java.net.UnknownHostException;
 import java.security.spec.AlgorithmParameterSpec;
 import java.security.spec.KeySpec;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Properties;
+import java.util.Random;
 import java.util.Set;
 import java.util.StringTokenizer;
 import java.util.Vector;
@@ -103,6 +107,7 @@ import javax.xml.transform.stream.StreamResult;
 import javax.xml.transform.stream.StreamSource;
 
 import freemind.common.XmlBindingTools;
+import freemind.controller.actions.generated.instance.CompoundAction;
 import freemind.controller.actions.generated.instance.XmlAction;
 import freemind.modes.MindMapNode;
 import freemind.modes.mindmapmode.MindMapController;
@@ -113,10 +118,20 @@ import freemind.view.mindmapview.NodeView;
  * 
  */
 public class Tools {
+	/**
+	 * 
+	 */
+	public static final String FREEMIND_LIB_FREEMIND_JAR = "lib/freemind.jar";
+
 	private static java.util.logging.Logger logger = null;
 	static {
 		logger = freemind.main.Resources.getInstance().getLogger("Tools");
 	}
+
+	public static final String CONTENTS_JAVA_FREEMIND_JAR = "Contents/Java/freemind.jar";
+
+	public static final String FREE_MIND_APP_CONTENTS_RESOURCES_JAVA = "Contents/Resources/Java/";
+
 	// public static final Set executableExtensions = new HashSet ({ "exe",
 	// "com", "vbs" });
 
@@ -130,6 +145,9 @@ public class Tools {
 	private static Set availableFontFamilyNames = null; // Keep set of platform
 
 	private static String sEnvFonts[] = null;
+
+	// bug fix from Dimitri.
+	public static Random ran = new Random();
 
 	// fonts
 
@@ -359,6 +377,23 @@ public class Tools {
 	}
 
 	/**
+	 * @return "/" for absolute file names under Unix, "c:\\" or similar under
+	 *         windows, null otherwise
+	 */
+	public static String getPrefix(String pFileName) {
+		if (isWindows()) {
+			if (pFileName.matches("^[a-zA-Z]:\\\\.*")) {
+				return pFileName.substring(0, 3);
+			}
+		} else {
+			if (pFileName.startsWith(File.separator)) {
+				return File.separator;
+			}
+		}
+		return null;
+	}
+
+	/**
 	 * This method converts an absolute url to an url relative to a given
 	 * base-url. Something like this should be included in the librarys, but I
 	 * couldn't find it. You can create a new absolute url with
@@ -375,14 +410,15 @@ public class Tools {
 		String targetString = target.getFile();
 		String result = "";
 		// remove filename from URL
-		targetString = targetString.substring(0, targetString.lastIndexOf("/")+1);
+		targetString = targetString.substring(0,
+				targetString.lastIndexOf("/") + 1);
 		// remove filename from URL
-		baseString = baseString.substring(0, baseString.lastIndexOf("/")+1);
+		baseString = baseString.substring(0, baseString.lastIndexOf("/") + 1);
 
 		// Algorithm
 		// look for same start:
-		int index = targetString.length()-1;
-		while (!baseString.startsWith(targetString.substring(0, index+1))) {
+		int index = targetString.length() - 1;
+		while (!baseString.startsWith(targetString.substring(0, index + 1))) {
 			// remove last part:
 			index = targetString.lastIndexOf("/", index - 1);
 			if (index < 0) {
@@ -981,8 +1017,8 @@ public class Tools {
 			FreeMindMain frame) throws IOException {
 		StringWriter writer = null;
 		InputStream inputStream = null;
-		final java.util.logging.Logger logger = frame
-				.getLogger(Tools.class.getName());
+		final java.util.logging.Logger logger = frame.getLogger(Tools.class
+				.getName());
 		logger.info("Updating the reader " + pReader
 				+ " to the current version.");
 		boolean successful = false;
@@ -1024,7 +1060,8 @@ public class Tools {
 					// create an instance of TransformerFactory
 					TransformerFactory transFact = TransformerFactory
 							.newInstance();
-					logger.info("TransformerFactory class: " + transFact.getClass());
+					logger.info("TransformerFactory class: "
+							+ transFact.getClass());
 					Transformer trans;
 					try {
 						trans = transFact.newTransformer(xsltSource);
@@ -1222,7 +1259,7 @@ public class Tools {
 		}
 	}
 
-	public static void convertPointToAncestor(Component c, Point p,
+	public static Point convertPointToAncestor(Component c, Point p,
 			Component destination) {
 		int x, y;
 		while (c != destination) {
@@ -1234,7 +1271,7 @@ public class Tools {
 
 			c = c.getParent();
 		}
-		;
+		return p;
 
 	}
 
@@ -1475,10 +1512,6 @@ public class Tools {
 	public static URL fileToUrl(File pFile) throws MalformedURLException {
 		if (pFile == null)
 			return null;
-		// fix for java1.4 and java5 only.
-		if (isBelowJava6()) {
-			return pFile.toURI().toURL();
-		}
 		return pFile.toURI().toURL();
 	}
 
@@ -1513,9 +1546,12 @@ public class Tools {
 	public static void waitForEventQueue() {
 		try {
 			// wait until AWT thread starts
+			// final Exception e = new IllegalArgumentException("HERE");
 			if (!EventQueue.isDispatchThread()) {
 				EventQueue.invokeAndWait(new Runnable() {
 					public void run() {
+						// logger.info("Waited for event queue.");
+						// e.printStackTrace();
 					};
 				});
 			} else {
@@ -1598,6 +1634,12 @@ public class Tools {
 		} catch (UnknownHostException e) {
 		}
 		return hostname;
+	}
+
+	public static String getUserName() {
+		// Get host name
+		String hostname = getHostName();
+		return System.getProperty("user.name") + "@" + hostname;
 	}
 
 	public static String marshall(XmlAction action) {
@@ -1808,12 +1850,11 @@ public class Tools {
 	 * @param pSearchString
 	 * @return the amount of occurrences of pSearchString in pString.
 	 */
-	public static int countOccurrences(String pString,
-			String pSearchString) {
+	public static int countOccurrences(String pString, String pSearchString) {
 		int amount = 0;
-		while(true) {
+		while (true) {
 			final int index = pString.indexOf(pSearchString);
-			if(index<0) {
+			if (index < 0) {
 				break;
 			}
 			amount++;
@@ -1838,14 +1879,17 @@ public class Tools {
 			String pPageFormatProperty) {
 		try {
 			// parse string:
-			StringTokenizer tokenizer = new StringTokenizer(pPageFormatProperty, ";");
-			if(tokenizer.countTokens() != 6) {
-				logger.warning("Page format property has not the correct format:" + pPageFormatProperty);
+			StringTokenizer tokenizer = new StringTokenizer(
+					pPageFormatProperty, ";");
+			if (tokenizer.countTokens() != 6) {
+				logger.warning("Page format property has not the correct format:"
+						+ pPageFormatProperty);
 				return;
 			}
 			pPaper.setSize(nt(tokenizer), nt(tokenizer));
-			pPaper.setImageableArea(nt(tokenizer), nt(tokenizer), nt(tokenizer), nt(tokenizer));
-		} catch(Exception e) {
+			pPaper.setImageableArea(nt(tokenizer), nt(tokenizer),
+					nt(tokenizer), nt(tokenizer));
+		} catch (Exception e) {
 			freemind.main.Resources.getInstance().logException(e);
 		}
 	}
@@ -1858,7 +1902,7 @@ public class Tools {
 		String nextToken = pTokenizer.nextToken();
 		try {
 			return Double.parseDouble(nextToken);
-		} catch(Exception e) {
+		} catch (Exception e) {
 			freemind.main.Resources.getInstance().logException(e);
 		}
 		return 0;
@@ -1869,8 +1913,116 @@ public class Tools {
 	 * @return
 	 */
 	public static String getPageFormatAsString(Paper pPaper) {
-		return pPaper.getWidth()+";"+pPaper.getHeight()+";"+pPaper.getImageableX()+";"+pPaper.getImageableY()+";"+
-				pPaper.getImageableWidth()+";"+pPaper.getImageableHeight();
+		return pPaper.getWidth() + ";" + pPaper.getHeight() + ";"
+				+ pPaper.getImageableX() + ";" + pPaper.getImageableY() + ";"
+				+ pPaper.getImageableWidth() + ";"
+				+ pPaper.getImageableHeight();
+	}
+
+	/**
+	 * @return
+	 */
+	public static String getHostIpAsString() {
+		try {
+			return InetAddress.getLocalHost().getHostAddress();
+		} catch (UnknownHostException e) {
+			freemind.main.Resources.getInstance().logException(e);
+		}
+		return null;
+	}
+
+	public static String printXmlAction(XmlAction pAction) {
+		final String classString = pAction.getClass().getName()
+				.replaceAll(".*\\.", "");
+		if (pAction instanceof CompoundAction) {
+			CompoundAction compound = (CompoundAction) pAction;
+			StringBuffer buf = new StringBuffer("[");
+			for (Iterator it = compound.getListChoiceList().iterator(); it
+					.hasNext();) {
+				if (buf.length() > 1) {
+					buf.append(',');
+				}
+				XmlAction subAction = (XmlAction) it.next();
+				buf.append(printXmlAction(subAction));
+			}
+			buf.append(']');
+			return classString + " " + buf.toString();
+		}
+		return classString;
+	}
+
+	public static XmlAction deepCopy(XmlAction action) {
+		return (XmlAction) unMarshall(marshall(action));
+	}
+
+	public static String generateID(String proposedID, HashMap hashMap,
+			String prefix) {
+		String myProposedID = new String((proposedID != null) ? proposedID : "");
+		String returnValue;
+		do {
+			if (!myProposedID.isEmpty()) {
+				// there is a proposal:
+				returnValue = myProposedID;
+				// this string is tried only once:
+				myProposedID = "";
+			} else {
+				/*
+				 * The prefix is to enable the id to be an ID in the sense of
+				 * XML/DTD.
+				 */
+				returnValue = prefix
+						+ Integer.toString(Tools.ran.nextInt(2000000000));
+			}
+		} while (hashMap.containsKey(returnValue));
+		return returnValue;
+	}
+
+	/**
+	 * Call this method, if you don't know, if you are in the event thread or
+	 * not. It checks this and calls the invokeandwait or the runnable directly.
+	 * 
+	 * @param pRunnable
+	 * @throws InterruptedException
+	 * @throws InvocationTargetException
+	 */
+	public static void invokeAndWait(Runnable pRunnable)
+			throws InvocationTargetException, InterruptedException {
+		if (EventQueue.isDispatchThread()) {
+			pRunnable.run();
+		} else {
+			EventQueue.invokeAndWait(pRunnable);
+		}
+	}
+
+	public static String getFreeMindBasePath()
+			throws UnsupportedEncodingException {
+		String path = FreeMindStarter.class.getProtectionDomain()
+				.getCodeSource().getLocation().getPath();
+		String decodedPath = URLDecoder.decode(path, "UTF-8");
+		logger.info("Path: " + decodedPath);
+		if (decodedPath.endsWith(CONTENTS_JAVA_FREEMIND_JAR)) {
+			decodedPath = decodedPath.substring(0, decodedPath.length()
+					- CONTENTS_JAVA_FREEMIND_JAR.length());
+			decodedPath = decodedPath + FREE_MIND_APP_CONTENTS_RESOURCES_JAVA;
+			logger.info("macPath: " + decodedPath);
+		} else if (decodedPath.endsWith(FREEMIND_LIB_FREEMIND_JAR)) {
+			decodedPath = decodedPath.substring(0, decodedPath.length()
+					- FREEMIND_LIB_FREEMIND_JAR.length());
+			logger.info("reducded Path: " + decodedPath);
+		}
+		return decodedPath;
+	}
+
+	public static Properties copyChangedProperties(Properties props2,
+			Properties defProps2) {
+		Properties toBeStored = new Properties();
+		for (Iterator it = props2.keySet().iterator(); it.hasNext();) {
+			String key = (String) it.next();
+			if (!safeEquals(props2.get(key), defProps2.get(key))) {
+				toBeStored.put(key, props2.get(key));
+			}
+		}
+		return toBeStored;
 	}
 
 }

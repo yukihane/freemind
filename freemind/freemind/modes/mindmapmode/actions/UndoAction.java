@@ -33,14 +33,13 @@ import javax.swing.Icon;
 import javax.swing.ImageIcon;
 
 import freemind.controller.actions.generated.instance.CompoundAction;
-import freemind.controller.actions.generated.instance.UndoXmlAction;
 import freemind.controller.actions.generated.instance.XmlAction;
+import freemind.main.Tools;
 import freemind.modes.mindmapmode.MindMapController;
 import freemind.modes.mindmapmode.actions.xml.AbstractXmlAction;
 import freemind.modes.mindmapmode.actions.xml.ActionPair;
-import freemind.modes.mindmapmode.actions.xml.ActorXml;
 
-public class UndoAction extends AbstractXmlAction implements ActorXml {
+public class UndoAction extends AbstractXmlAction {
 
 	private MindMapController controller;
 	private boolean isUndoAction;
@@ -64,7 +63,6 @@ public class UndoAction extends AbstractXmlAction implements ActorXml {
 			MindMapController mode) {
 		super(text, icon, mode);
 		this.controller = adapter;
-		addActor(this);
 		setEnabled(false);
 		isUndoAction = false;
 	}
@@ -87,15 +85,11 @@ public class UndoAction extends AbstractXmlAction implements ActorXml {
 			ActionPair pair = (ActionPair) actionPairList.get(0);
 			informUndoPartner(pair);
 			actionPairList.remove(0);
-
 			undoDoAction(pair);
-
-			if (actionPairList.size() == 0) {
-				// disable undo
-				this.setEnabled(false);
-			}
-		} else {
-			setEnabled(false);
+		}
+		if (actionPairList.size() == 0) {
+			// disable undo
+			this.setEnabled(false);
 		}
 	}
 
@@ -107,46 +101,12 @@ public class UndoAction extends AbstractXmlAction implements ActorXml {
 	}
 
 	protected void undoDoAction(ActionPair pair) {
-		String doActionString = this.controller.marshall(pair.getDoAction());
-		String redoActionString = this.controller
-				.marshall(pair.getUndoAction());
-		// logger.info("doActionString: "+ doActionString );
-		// logger.info("\nredoActionString: "+ redoActionString);
-
-		UndoXmlAction undoAction = new UndoXmlAction();
-		undoAction.setDescription(redoActionString);
-		undoAction.setRemedia(doActionString);
-
-		UndoXmlAction redoAction = new UndoXmlAction();
-		redoAction.setDescription(doActionString);
-		undoAction.setRemedia(redoActionString);
-
+		logger.info("Undo, doing: " + Tools.printXmlAction(pair.getUndoAction()));
+		logger.info("Redo, would: " + Tools.printXmlAction(pair.getDoAction()));
 		isUndoAction = true;
-		this.controller.getActionFactory().executeAction(
-				new ActionPair(undoAction, redoAction));
+		this.controller.doTransaction("Undo",
+				new ActionPair(pair.getUndoAction(), pair.getDoAction()));
 		isUndoAction = false;
-	}
-
-	/*
-	 * (non-Javadoc)
-	 * 
-	 * @see
-	 * freemind.controller.actions.ActorXml#act(freemind.controller.actions.
-	 * generated.instance.XmlAction)
-	 */
-	public void act(XmlAction action) {
-		// unmarshall:
-		UndoXmlAction undoAction = (UndoXmlAction) action;
-		XmlAction doAction = this.controller.unMarshall(undoAction
-				.getDescription());
-		XmlAction redoAction = this.controller.unMarshall(undoAction
-				.getRemedia());
-		this.controller.getActionFactory().executeAction(
-				new ActionPair(doAction, redoAction));
-	}
-
-	public Class getDoActionClass() {
-		return UndoXmlAction.class;
 	}
 
 	/*
@@ -162,9 +122,12 @@ public class UndoAction extends AbstractXmlAction implements ActorXml {
 	}
 
 	public void add(ActionPair pair) {
+		XmlAction dcDo = Tools.deepCopy(pair.getDoAction());
+		XmlAction dcUndo = Tools.deepCopy(pair.getUndoAction());
 		long currentTime = System.currentTimeMillis();
 		if ((actionPairList.size() > 0)
 				&& (actionFrameStarted || currentTime - timeOfLastAdd < TIME_TO_BEGIN_NEW_ACTION)) {
+			// the actions are gathered in one compound action.
 			ActionPair firstPair = (ActionPair) actionPairList.get(0);
 			CompoundAction action;
 			CompoundAction remedia;
@@ -181,10 +144,11 @@ public class UndoAction extends AbstractXmlAction implements ActorXml {
 				action = (CompoundAction) firstPair.getDoAction();
 				remedia = (CompoundAction) firstPair.getUndoAction();
 			}
-			action.addChoice(pair.getDoAction());
-			remedia.addAtChoice(0, pair.getUndoAction());
+			action.addChoice(dcDo);
+			remedia.addAtChoice(0, dcUndo);
 		} else {
-			actionPairList.add(0, pair);
+			ActionPair storagePair = new ActionPair(dcDo, dcUndo);
+			actionPairList.add(0, storagePair);
 			// and cut vector, if bigger than given size:
 			int maxEntries = 100;
 			try {
@@ -223,7 +187,7 @@ public class UndoAction extends AbstractXmlAction implements ActorXml {
 		for (Iterator i = actionPairList.iterator(); i.hasNext();) {
 			ActionPair pair = (ActionPair) i.next();
 			logger.info("line " + (j++) + " = "
-					+ controller.marshall(pair.getDoAction()));
+					+ Tools.printXmlAction(pair.getDoAction()));
 		}
 	}
 }

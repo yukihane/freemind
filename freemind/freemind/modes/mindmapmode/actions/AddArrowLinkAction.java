@@ -19,7 +19,7 @@
  *
  * Created on 07.10.2004
  */
-/* $Id: AddArrowLinkAction.java,v 1.1.2.2.2.2 2006/07/25 20:28:21 christianfoltin Exp $ */
+
 
 package freemind.modes.mindmapmode.actions;
 
@@ -95,7 +95,7 @@ public class AddArrowLinkAction extends FreemindAction implements ActorXml {
 					target, modeController.getFrame());
 			linkModel.setDestinationLabel(getLinkRegistry().getLabel(target));
 			// give label:
-			linkModel.setUniqueID(getLinkRegistry().generateUniqueLinkID(
+			linkModel.setUniqueId(getLinkRegistry().generateUniqueLinkId(
 					proposedId));
 			// check for other attributes:
 			if (arrowAction.getColor() != null) {
@@ -129,7 +129,7 @@ public class AddArrowLinkAction extends FreemindAction implements ActorXml {
 
 	private ActionPair getActionPair(MindMapNode source, MindMapNode target) {
 		AddArrowLinkXmlAction doAction = createAddArrowLinkXmlAction(source,
-				target, getLinkRegistry().generateUniqueLinkID(null));
+				target, getLinkRegistry().generateUniqueLinkId(null));
 		// now, the id is clear:
 		RemoveArrowLinkXmlAction undoAction = removeAction
 				.createRemoveArrowLinkXmlAction(doAction.getNewId());
@@ -150,12 +150,8 @@ public class AddArrowLinkAction extends FreemindAction implements ActorXml {
 	 * target.
 	 */
 	public void addLink(MindMapNode source, MindMapNode target) {
-		modeController.getActionFactory().startTransaction(
-				(String) getValue(NAME));
-		modeController.getActionFactory().executeAction(
-				getActionPair(source, target));
-		modeController.getActionFactory().endTransaction(
-				(String) getValue(NAME));
+		modeController.doTransaction(
+				(String) getValue(NAME), getActionPair(source, target));
 	}
 
 	/**

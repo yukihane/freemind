@@ -19,7 +19,7 @@
  *
  * Created on 06.10.2004
  */
-/* $Id: CloudAction.java,v 1.1.2.2.2.5 2008/03/14 21:15:23 christianfoltin Exp $ */
+
 
 package freemind.modes.mindmapmode.actions;
 
@@ -60,12 +60,8 @@ public class CloudAction extends NodeGeneralAction implements NodeActorXml,
 	}
 
 	public void setCloud(MindMapNode node, boolean enable) {
-		modeController.getActionFactory().startTransaction(
-				(String) getValue(NAME));
-		modeController.getActionFactory().executeAction(
-				getActionPair(node, enable));
-		modeController.getActionFactory().endTransaction(
-				(String) getValue(NAME));
+		modeController.doTransaction(
+				(String) getValue(NAME), getActionPair(node, enable));
 
 	}
 

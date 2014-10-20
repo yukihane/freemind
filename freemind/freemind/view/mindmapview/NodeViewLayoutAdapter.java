@@ -16,7 +16,7 @@
  *along with this program; if not, write to the Free Software
  *Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
-/* $Id: NodeViewLayoutAdapter.java,v 1.1.4.6 2008/06/08 14:00:42 dpolivaev Exp $ */
+
 package freemind.view.mindmapview;
 
 import java.awt.Component;
@@ -26,10 +26,16 @@ import java.awt.Point;
 
 import javax.swing.JComponent;
 
+import freemind.main.Tools;
 import freemind.modes.MindMapNode;
 
+/**
+ * @author foltin
+ * @date 11.07.2013
+ */
 abstract public class NodeViewLayoutAdapter implements NodeViewLayout {
 	protected final int LISTENER_VIEW_WIDTH = 10;
+	protected static java.util.logging.Logger logger = null;
 	protected Point location = new Point();
 	private static Dimension minDimension;
 	private NodeView view;
@@ -39,6 +45,13 @@ abstract public class NodeViewLayoutAdapter implements NodeViewLayout {
 	private int vGap;
 	private int spaceAround;
 
+	public NodeViewLayoutAdapter() {
+		if (logger == null) {
+			logger = freemind.main.Resources.getInstance().getLogger(
+					this.getClass().getName());
+		}
+	}
+	
 	public void addLayoutComponent(String arg0, Component arg1) {
 	}
 
@@ -76,7 +89,29 @@ abstract public class NodeViewLayoutAdapter implements NodeViewLayout {
 	public void layoutContainer(Container c) {
 		setUp(c);
 		layout();
+		Point location2 = view.getLocation();
+		Tools.convertPointToAncestor(view, location2, view.getMap());
+//		logger.info("Layouting node '" + view.getModel() + "' to " + location2);
+		layoutOtherItems();
 		shutDown();
+	}
+
+	/**
+	 * 
+	 */
+	private void layoutOtherItems() {
+		final int componentCount = view.getComponentCount();
+		for (int i = 0; i < componentCount; i++) {
+			final Component component = view.getComponent(i);
+			if (component instanceof NodeMotionListenerView) {
+				NodeMotionListenerView nodeMotionListenerView = (NodeMotionListenerView) component;
+				layoutNodeMotionListenerView(nodeMotionListenerView);
+			} else if (component instanceof NodeFoldingComponent) {
+				NodeFoldingComponent foldingComponent = (NodeFoldingComponent) component;
+				layoutNodeFoldingComponent(foldingComponent);
+			}
+		}
+
 	}
 
 	abstract protected void layout();
@@ -148,32 +183,48 @@ abstract public class NodeViewLayoutAdapter implements NodeViewLayout {
 		int height = 0;
 		int count = 0;
 		for (int i = 0; i < childCount; i++) {
-			final NodeView child = (NodeView) getView().getComponent(i);
-			if (child.isLeft() == isLeft) {
-				final int additionalCloudHeigth = child
-						.getAdditionalCloudHeigth();
-				final int contentHeight = child.getContent().getHeight();
-				height += contentHeight + additionalCloudHeigth;
-				count++;
+			Component component = getView().getComponent(i);
+			if (component instanceof NodeView) {
+				NodeView child = (NodeView) component;
+				if (child.isLeft() == isLeft) {
+					final int additionalCloudHeigth = child
+							.getAdditionalCloudHeigth();
+					final int contentHeight = child.getContent().getHeight();
+					height += contentHeight + additionalCloudHeigth;
+					count++;
+				}
 			}
 		}
 		return height + vGap * (count - 1);
 	}
 
+	/**
+	 * @param isLeft
+	 * @return a shift, which is less than or equal zero
+	 */
 	protected int getChildVerticalShift(boolean isLeft) {
-		if (getChildCount() == 0)
-			return 0;
 		int shift = 0;
+		boolean isFirstNodeView = false;
+		boolean foundNodeView = false;
 		for (int i = 0; i < getChildCount(); i++) {
-			final NodeView child = (NodeView) getView().getComponent(i);
-			if (child.isLeft() == isLeft) {
-				final int childShift = child.getShift();
-				if (childShift < 0 || i == 0)
-					shift += childShift;
-				shift -= (child.getContent().getY() - getSpaceAround());
+			Component component = getView().getComponent(i);
+			if (component instanceof NodeView) {
+				NodeView child = (NodeView) component;
+				if (child.isLeft() == isLeft) {
+					final int childShift = child.getShift();
+					if (childShift < 0 || isFirstNodeView) {
+						shift += childShift;
+						isFirstNodeView = false;
+					}
+					shift -= (child.getContent().getY() - getSpaceAround());
+					foundNodeView = true;
+				}
 			}
 		}
-		return shift - getSpaceAround();
+		if(foundNodeView) {
+			shift -= getSpaceAround();
+		}
+		return shift;
 	}
 
 	protected int getChildHorizontalShift() {
@@ -181,58 +232,70 @@ abstract public class NodeViewLayoutAdapter implements NodeViewLayout {
 			return 0;
 		int shift = 0;
 		for (int i = 0; i < getChildCount(); i++) {
-			NodeView child = (NodeView) getView().getComponent(i);
-			int shiftCandidate;
-			if (child.isLeft()) {
-				shiftCandidate = -child.getContent().getX()
-						- child.getContent().getWidth();
-				if (child.isContentVisible()) {
-					shiftCandidate -= child.getHGap()
-							+ child.getAdditionalCloudHeigth() / 2;
+			Component component = getView().getComponent(i);
+			if (component instanceof NodeView) {
+				NodeView child = (NodeView) component;
+				int shiftCandidate;
+				if (child.isLeft()) {
+					shiftCandidate = -child.getContent().getX()
+							- child.getContent().getWidth();
+					if (child.isContentVisible()) {
+						shiftCandidate -= child.getHGap()
+								+ child.getAdditionalCloudHeigth() / 2;
+					}
+				} else {
+					shiftCandidate = -child.getContent().getX();
+					if (child.isContentVisible()) {
+						shiftCandidate += child.getHGap();
+					}
 				}
-			} else {
-				shiftCandidate = -child.getContent().getX();
-				if (child.isContentVisible()) {
-					shiftCandidate += child.getHGap();
-				}
+	
+				shift = Math.min(shift, shiftCandidate);
 			}
-
-			shift = Math.min(shift, shiftCandidate);
 		}
 		return shift;
 	}
 
+	/**
+	 * Implemented in the base class, as the root layout needs it, too.
+	 * @param childVerticalShift
+	 */
 	protected void placeRightChildren(int childVerticalShift) {
 		final int baseX = getContent().getX() + getContent().getWidth();
 		int y = getContent().getY() + childVerticalShift;
 		int right = baseX + getSpaceAround();
-		;
+
 		NodeView child = null;
 		for (int i = 0; i < getChildCount(); i++) {
-			final NodeView component = (NodeView) getView().getComponent(i);
-			if (component.isLeft()) {
-				continue;
+			Component componentC = getView().getComponent(i);
+			if (componentC instanceof NodeView) {
+				NodeView component = (NodeView) componentC;
+				if (component.isLeft()) {
+					continue;
+				}
+				child = component;
+				final int additionalCloudHeigth = child.getAdditionalCloudHeigth() / 2;
+				y += additionalCloudHeigth;
+				int shiftY = child.getShift();
+				final int childHGap = child.getContent().isVisible() ? child
+						.getHGap() : 0;
+				int x = baseX + childHGap - child.getContent().getX();
+				if (shiftY < 0) {
+					child.setLocation(x, y);
+					y -= shiftY;
+				} else {
+					y += shiftY;
+					child.setLocation(x, y);
+				}
+//				logger.info("Place of child " + component.getModel().getText() + ": " + child.getLocation());
+				
+				y += child.getHeight() - 2 * getSpaceAround() + getVGap()
+						+ additionalCloudHeigth;
+				right = Math.max(right, x + child.getWidth()
+						+ additionalCloudHeigth);
 			}
-			child = component;
-			final int additionalCloudHeigth = child.getAdditionalCloudHeigth() / 2;
-			y += additionalCloudHeigth;
-			int shiftY = child.getShift();
-			final int childHGap = child.getContent().isVisible() ? child
-					.getHGap() : 0;
-			int x = baseX + childHGap - child.getContent().getX();
-			if (shiftY < 0) {
-				child.setLocation(x, y);
-				y -= shiftY;
-			} else {
-				y += shiftY;
-				child.setLocation(x, y);
-			}
-			y += child.getHeight() - 2 * getSpaceAround() + getVGap()
-					+ additionalCloudHeigth;
-			right = Math.max(right, x + child.getWidth()
-					+ additionalCloudHeigth);
 		}
-		final int bottom = getContent().getY() + getContent().getHeight()
+		int bottom = getContent().getY() + getContent().getHeight()
 				+ getSpaceAround();
 
 		if (child != null) {
@@ -247,36 +310,43 @@ abstract public class NodeViewLayoutAdapter implements NodeViewLayout {
 		}
 	}
 
+	/**
+ 	 * Implemented in the base class, as the root layout needs it, too.
+	 * @param childVerticalShift
+	 */
 	protected void placeLeftChildren(int childVerticalShift) {
 		final int baseX = getContent().getX();
 		int y = getContent().getY() + childVerticalShift;
 		int right = baseX + getContent().getWidth() + getSpaceAround();
 		NodeView child = null;
 		for (int i = 0; i < getChildCount(); i++) {
-			final NodeView component = (NodeView) getView().getComponent(i);
-			if (!component.isLeft()) {
-				continue;
+			Component componentC = getView().getComponent(i);
+			if (componentC instanceof NodeView) {
+				NodeView component = (NodeView) componentC;
+				if (!component.isLeft()) {
+					continue;
+				}
+				child = component;
+				final int additionalCloudHeigth = child.getAdditionalCloudHeigth() / 2;
+				y += additionalCloudHeigth;
+				int shiftY = child.getShift();
+				final int childHGap = child.getContent().isVisible() ? child
+						.getHGap() : 0;
+				int x = baseX - childHGap - child.getContent().getX()
+						- child.getContent().getWidth();
+				if (shiftY < 0) {
+					child.setLocation(x, y);
+					y -= shiftY;
+				} else {
+					y += shiftY;
+					child.setLocation(x, y);
+				}
+				y += child.getHeight() - 2 * getSpaceAround() + getVGap()
+						+ additionalCloudHeigth;
+				right = Math.max(right, x + child.getWidth());
 			}
-			child = component;
-			final int additionalCloudHeigth = child.getAdditionalCloudHeigth() / 2;
-			y += additionalCloudHeigth;
-			int shiftY = child.getShift();
-			final int childHGap = child.getContent().isVisible() ? child
-					.getHGap() : 0;
-			int x = baseX - childHGap - child.getContent().getX()
-					- child.getContent().getWidth();
-			if (shiftY < 0) {
-				child.setLocation(x, y);
-				y -= shiftY;
-			} else {
-				y += shiftY;
-				child.setLocation(x, y);
-			}
-			y += child.getHeight() - 2 * getSpaceAround() + getVGap()
-					+ additionalCloudHeigth;
-			right = Math.max(right, x + child.getWidth());
 		}
-		final int bottom = getContent().getY() + getContent().getHeight()
+		int bottom = getContent().getY() + getContent().getHeight()
 				+ getSpaceAround();
 
 		if (child != null) {
@@ -305,4 +375,20 @@ abstract public class NodeViewLayoutAdapter implements NodeViewLayout {
 		return spaceAround;
 	}
 
+	/* (non-Javadoc)
+	 * @see freemind.view.mindmapview.NodeViewLayout#layoutNodeFoldingComponent(freemind.view.mindmapview.NodeFoldingListenerView)
+	 */
+	public void layoutNodeFoldingComponent(
+			NodeFoldingComponent pFoldingComponent) {
+		NodeView movedView = pFoldingComponent.getNodeView();
+
+		Point location = movedView.getFoldingMarkPosition();
+		JComponent content = movedView.getContent();
+		Tools.convertPointToAncestor(content, location, pFoldingComponent.getParent());
+		pFoldingComponent.setCorrectedLocation(location);
+
+		Dimension preferredSize = pFoldingComponent.getPreferredSize();
+		pFoldingComponent.setSize(preferredSize.width, preferredSize.height);
+	}
+	
 }

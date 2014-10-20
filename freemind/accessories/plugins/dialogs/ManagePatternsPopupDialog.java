@@ -61,7 +61,6 @@ import javax.swing.event.ListSelectionListener;
 import com.jgoodies.forms.factories.ButtonBarFactory;
 
 import freemind.common.TextTranslator;
-import freemind.common.XmlBindingTools;
 import freemind.controller.StructuredMenuHolder;
 import freemind.controller.actions.generated.instance.ManageStyleEditorWindowConfigurationStorage;
 import freemind.controller.actions.generated.instance.Pattern;
@@ -498,10 +497,8 @@ public class ManagePatternsPopupDialog extends JDialog implements
 		writePatternBackToModel();
 		setLastSelectedPattern(null);
 		Pattern oldPattern = mPatternListModel.getPatternAt(selectedIndex);
-		// deep copy via xml:
-		XmlBindingTools instance = XmlBindingTools.getInstance();
-		Pattern newPattern = (Pattern) instance.unMarshall(instance
-				.marshall(oldPattern));
+		// deep copy:
+		Pattern newPattern = (Pattern) Tools.deepCopy(oldPattern);
 		newPattern.setName(searchForNameForNewPattern());
 		mPatternListModel.addPattern(newPattern, selectedIndex);
 		mList.setSelectedIndex(selectedIndex);

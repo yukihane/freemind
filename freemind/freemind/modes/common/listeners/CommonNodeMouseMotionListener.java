@@ -16,7 +16,7 @@
  *along with this program; if not, write to the Free Software
  *Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
-/* $Id: CommonNodeMouseMotionListener.java,v 1.1.2.1.2.5 2007/08/03 17:24:01 dpolivaev Exp $ */
+
 
 package freemind.modes.common.listeners;
 
@@ -36,7 +36,8 @@ import freemind.view.mindmapview.MainView;
 import freemind.view.mindmapview.NodeView;
 
 /**
- * The MouseMotionListener which belongs to every NodeView
+ * The MouseMotionListener which belongs to every NodeView.
+ * Handles delayed selection.
  */
 public class CommonNodeMouseMotionListener implements NodeMouseMotionObserver {
 

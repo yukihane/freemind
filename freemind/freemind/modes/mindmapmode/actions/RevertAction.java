@@ -19,7 +19,7 @@
  *
  * Created on 11.03.2005
  */
-/* $Id: RevertAction.java,v 1.1.2.2.2.10 2009/01/01 21:33:48 christianfoltin Exp $ */
+
 package freemind.modes.mindmapmode.actions;
 
 import java.awt.event.ActionEvent;
@@ -82,12 +82,9 @@ public class RevertAction extends FreemindAction implements ActorXml {
 			RevertXmlAction doAction = createRevertXmlAction(file);
 			RevertXmlAction undoAction = createRevertXmlAction(
 					mindMapController.getMap(), null, file.getName());
-			mindMapController.getActionFactory().startTransaction(
-					this.getClass().getName());
-			mindMapController.getActionFactory().executeAction(
+			mindMapController.doTransaction(
+					this.getClass().getName(),
 					new ActionPair(doAction, undoAction));
-			mindMapController.getActionFactory().endTransaction(
-					this.getClass().getName());
 		} catch (IOException e) {
 			freemind.main.Resources.getInstance().logException(e);
 		}
@@ -100,12 +97,9 @@ public class RevertAction extends FreemindAction implements ActorXml {
 					null, null);
 			RevertXmlAction undoAction = createRevertXmlAction(
 					mindMapController.getMap(), null, null);
-			mindMapController.getActionFactory().startTransaction(
-					this.getClass().getName());
-			mindMapController.getActionFactory().executeAction(
+			mindMapController.doTransaction(
+					this.getClass().getName(),
 					new ActionPair(doAction, undoAction));
-			mindMapController.getActionFactory().endTransaction(
-					this.getClass().getName());
 		} catch (IOException e) {
 			freemind.main.Resources.getInstance().logException(e);
 		}

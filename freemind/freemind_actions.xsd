@@ -30,7 +30,6 @@
 					<xs:element ref="delete_node_action"/>
 					<xs:element ref="edit_node_action"/>
 					<xs:element ref="new_node_action"/>
-					<xs:element ref="undo_xml_action"/>
 					<xs:element ref="fold_action"/>
 					<xs:element ref="move_nodes_action"/>
 					<xs:element ref="hook_node_action"/>
@@ -534,22 +533,6 @@
 	  </xs:complexType>
 	</xs:element>
 
-	<!-- Undo Action -->
-	<xs:element name="undo_xml_action">
-	  <xs:complexType>
-	  	<xs:complexContent>
-	  		<xs:extension base="xml_action">
-	  			<xs:sequence>
-	  			<!-- description contains the marshalled doAction for this undoAction. The doAction is performed by undo. -->
-	  				<xs:element name="description" type="xs:string" maxOccurs="1" minOccurs="1"></xs:element>
-	  			<!-- remedia contains the marshalled redoAction for this undoAction. The redoAction is performed by redo following undo. -->
-	  				<xs:element name="remedia" type="xs:string" maxOccurs="1" minOccurs="0"></xs:element>
-	  			</xs:sequence>
-	  		</xs:extension>
-	  	</xs:complexContent>
-	  </xs:complexType>
-	</xs:element>
-
 	<!-- Toggle folded node Action
 		 This is done via the parent and its index, because at creation time of the node, the id was not present. -->
 	<xs:element name="fold_action">
@@ -676,7 +659,72 @@
 	  </xs:complexType>
 	</xs:element>
 
+	<xs:element name="reversegeocode">
+	  <xs:complexType>
+		<xs:complexContent>
+			<xs:extension base="xml_action">
+			    <xs:sequence>
+			      <xs:element ref="result"/>
+			    </xs:sequence>
+			    <xs:attribute name="attribution" use="required"/>
+			    <xs:attribute name="querystring" type="xs:string" use="required"/>
+			    <xs:attribute name="timestamp" use="required"/>
+			</xs:extension>
+		</xs:complexContent>
+	  </xs:complexType>
+	</xs:element>
+	
+	  <xs:complexType name="result_base" mixed="true">
+		<xs:complexContent>
+		    <xs:attribute name="lat" use="required" type="xs:double"/>
+		    <xs:attribute name="lon" use="required" type="xs:double"/>
+		    <xs:attribute name="osm_id" use="required" type="xs:integer"/>
+		    <xs:attribute name="osm_type" use="required" type="xs:NCName"/>
+		    <xs:attribute name="place_id" use="required" type="xs:integer"/>
+		    <xs:attribute name="ref" use="optional"/>
+	    </xs:complexContent>
+	  </xs:complexType>
 
+	<xs:element name="result">
+	  <xs:complexType>
+		<xs:complexContent>
+			<xs:extension base="result_base">
+			</xs:extension>
+		</xs:complexContent>
+	  </xs:complexType>
+	</xs:element>
+
+<!-- 
+			      <xs:element ref="addressparts"/>
+	<xs:element name="addressparts">
+	  <xs:complexType>
+	    <xs:sequence>
+	      <xs:element ref="house"/>
+	      <xs:element ref="house_number"/>
+	      <xs:element ref="road"/>
+	      <xs:element ref="suburb"/>
+	      <xs:element ref="city_district"/>
+	      <xs:element ref="city"/>
+	      <xs:element ref="state"/>
+	      <xs:element ref="postcode"/>
+	      <xs:element ref="country"/>
+	      <xs:element ref="country_code"/>
+	      <xs:element ref="continent"/>
+	    </xs:sequence>
+	  </xs:complexType>
+	</xs:element>
+	<xs:element name="house" type="xs:string"/>
+	<xs:element name="house_number" type="xs:integer"/>
+	<xs:element name="road" type="xs:string"/>
+	<xs:element name="suburb" type="xs:NCName"/>
+	<xs:element name="city_district" type="xs:NCName"/>
+	<xs:element name="city" type="xs:NCName"/>
+	<xs:element name="state" type="xs:NCName"/>
+	<xs:element name="postcode" type="xs:integer"/>
+	<xs:element name="country" type="xs:NCName"/>
+	<xs:element name="country_code" type="xs:NCName"/>
+	<xs:element name="continent" type="xs:string"/>
+ -->
 
 	<!-- Add (and remove(?)) a permanent hook to a node -->
 	<xs:element name="hook_node_action">
@@ -883,6 +931,116 @@
 			  <!-- If the command is "request_map_sharing" the entire map is sent with the command.-->
 		      <xs:attribute name="map" use="optional" type="xs:string"/>
 		      <xs:attribute name="filename" use="optional" type="xs:string"/>
+			</xs:extension>
+		</xs:complexContent>
+	  </xs:complexType>
+	</xs:element>
+	<!--  ===================================================== -->
+	<!--  ====      Collaboration using bare TCP           ==== -->
+	<!--  ===================================================== -->
+	  <xs:complexType name="collaboration_action_base">
+		<xs:complexContent>
+			<xs:extension base="xml_action">
+			</xs:extension>
+		</xs:complexContent>
+	  </xs:complexType>
+
+	<xs:element name="collaboration_require_lock">
+	  <xs:complexType>
+		<xs:complexContent>
+			<xs:extension base="collaboration_action_base">
+			</xs:extension>
+		</xs:complexContent>
+	  </xs:complexType>
+	</xs:element>
+
+	<xs:element name="collaboration_user_information">
+	  <xs:complexType>
+		<xs:complexContent>
+			<xs:extension base="collaboration_action_base">
+				<xs:attribute name="user_ids" use="required" type="xs:string"/>
+				<xs:attribute name="master_ip" use="required" type="xs:string"/>
+				<xs:attribute name="master_port" use="required" type="xs:int"/>
+				<xs:attribute name="master_hostname" use="required" type="xs:string"/>
+			</xs:extension>
+		</xs:complexContent>
+	  </xs:complexType>
+	</xs:element>
+	<xs:element name="collaboration_who_are_you">
+	  <xs:complexType>
+		<xs:complexContent>
+			<xs:extension base="collaboration_action_base">
+			</xs:extension>
+		</xs:complexContent>
+	  </xs:complexType>
+	</xs:element>
+	<xs:element name="collaboration_hello">
+	  <xs:complexType>
+		<xs:complexContent>
+			<xs:extension base="collaboration_action_base">
+				<xs:attribute name="user_id" use="required" type="xs:string"/>
+				<xs:attribute name="password" use="required" type="xs:string"/>
+			</xs:extension>
+		</xs:complexContent>
+	  </xs:complexType>
+	</xs:element>
+	<xs:element name="collaboration_welcome">
+	  <xs:complexType>
+		<xs:complexContent>
+			<xs:extension base="collaboration_action_base">
+				<xs:attribute name="map" use="optional" type="xs:string"/>
+				<xs:attribute name="filename" use="optional" type="xs:string"/>
+			</xs:extension>
+		</xs:complexContent>
+	  </xs:complexType>
+	</xs:element>
+	<!-- Both from server or to server. -->
+	<xs:element name="collaboration_goodbye">
+	  <xs:complexType>
+		<xs:complexContent>
+			<xs:extension base="collaboration_action_base">
+				<xs:attribute name="user_id" use="required" type="xs:string"/>
+			</xs:extension>
+		</xs:complexContent>
+	  </xs:complexType>
+	</xs:element>
+
+	<xs:element name="collaboration_unable_to_lock">
+	  <xs:complexType>
+		<xs:complexContent>
+			<xs:extension base="collaboration_action_base">
+			</xs:extension>
+		</xs:complexContent>
+	  </xs:complexType>
+	</xs:element>
+
+	<xs:element name="collaboration_wrong_credentials">
+	  <xs:complexType>
+		<xs:complexContent>
+			<xs:extension base="collaboration_action_base">
+			</xs:extension>
+		</xs:complexContent>
+	  </xs:complexType>
+	</xs:element>
+
+	<xs:element name="collaboration_receive_lock">
+	  <xs:complexType>
+		<xs:complexContent>
+			<xs:extension base="collaboration_action_base">
+				<xs:attribute name="id" use="required" type="xs:string"/>
+			</xs:extension>
+		</xs:complexContent>
+	  </xs:complexType>
+	</xs:element>
+
+	<!-- Both to server and from server -->
+	<xs:element name="collaboration_transaction">
+	  <xs:complexType>
+		<xs:complexContent>
+			<xs:extension base="collaboration_action_base">
+				<xs:attribute name="id" use="required" type="xs:string"/>
+				<xs:attribute name="do_action" use="required" type="xs:string"/>
+				<xs:attribute name="undo_action" use="required" type="xs:string"/>
 			</xs:extension>
 		</xs:complexContent>
 	  </xs:complexType>
@@ -1102,6 +1260,8 @@
 						<xs:element minOccurs="0" maxOccurs="1" ref="pattern_script"/>
 					</xs:choice>
 				    <xs:attribute name="name" use="required" type="xs:string"/>
+				    <!-- Used to store the not-translated name at FreeMind runtime -->
+				    <xs:attribute name="original_name" use="optional" type="xs:string"/>
 				</xs:extension>
 			</xs:complexContent>
 		</xs:complexType>		

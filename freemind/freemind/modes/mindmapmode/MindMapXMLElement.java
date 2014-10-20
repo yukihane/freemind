@@ -16,7 +16,7 @@
  *along with this program; if not, write to the Free Software
  *Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
-/* $Id: MindMapXMLElement.java,v 1.13.18.2.2.4 2009/03/09 18:45:05 christianfoltin Exp $ */
+
 
 package freemind.modes.mindmapmode;
 
@@ -27,6 +27,7 @@ import java.util.Vector;
 import freemind.main.FreeMindMain;
 import freemind.main.XMLElement;
 import freemind.modes.ArrowLinkAdapter;
+import freemind.modes.ArrowLinkTarget;
 import freemind.modes.CloudAdapter;
 import freemind.modes.EdgeAdapter;
 import freemind.modes.MindMap;
@@ -63,7 +64,7 @@ public class MindMapXMLElement extends XMLElementAdapter {
 	protected XMLElement createAnotherElement() {
 		// We do not need to initialize the things of XMLElement.
 		return new MindMapXMLElement(mModeController, mArrowLinkAdapters,
-				mIDToTarget);
+				mIdToTarget);
 	}
 
 	protected NodeAdapter createNodeAdapter(FreeMindMain frame, String nodeClass) {
@@ -106,6 +107,11 @@ public class MindMapXMLElement extends XMLElementAdapter {
 		return new MindMapArrowLinkModel(source, target, frame);
 	}
 
+	protected ArrowLinkTarget createArrowLinkTarget(NodeAdapter source,
+			NodeAdapter target, FreeMindMain frame) {
+		return new ArrowLinkTarget(source, target, frame);
+	}
+	
 	protected NodeAdapter createEncryptedNode(String additionalInfo) {
 		NodeAdapter node = createNodeAdapter(frame,
 				EncryptedMindMapNode.class.getName());

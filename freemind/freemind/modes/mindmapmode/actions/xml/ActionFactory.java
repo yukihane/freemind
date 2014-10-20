@@ -19,7 +19,6 @@
  *
  * Created on 24.04.2004
  */
-/* $Id: ActionFactory.java,v 1.1.2.2.2.10 2009/11/28 21:34:18 christianfoltin Exp $ */
 
 package freemind.modes.mindmapmode.actions.xml;
 
@@ -30,6 +29,7 @@ import java.util.Vector;
 import freemind.controller.Controller;
 import freemind.controller.actions.generated.instance.XmlAction;
 import freemind.modes.mindmapmode.actions.xml.ActionFilter.FinalActionFilter;
+import freemind.modes.mindmapmode.actions.xml.ActionFilter.FirstActionFilter;
 
 /**
  * @author foltin
@@ -86,24 +86,42 @@ public class ActionFactory {
 				/* Insert as the last one here. */
 				registeredFilters.insertElementAt(newFilter,
 						registeredFilters.size());
+			} else if (newFilter instanceof FirstActionFilter) {
+				/* Insert as the first one here. */
+				registeredFilters.insertElementAt(newFilter, 0);
 			} else {
-				registeredFilters.add(newFilter);
+				/* Insert before FinalActionFilters */
+				int index = 0;
+				for (Iterator it = registeredFilters.iterator(); it.hasNext();) {
+					ActionFilter filter = (ActionFilter) it.next();
+					if (filter instanceof FinalActionFilter) {
+						break;
+					}
+					index++;
+				}
+				registeredFilters.insertElementAt(newFilter, index);
 			}
 		}
+		// int count = 0;
+		// for (Iterator it = registeredFilters.iterator(); it.hasNext();) {
+		// ActionFilter filter = (ActionFilter) it.next();
+		// logger.info("Filter " + count + ": " + filter.getClass().getName());
+		// count++;
+		// }
 	}
 
 	public void deregisterFilter(ActionFilter newFilter) {
 		registeredFilters.remove(newFilter);
 	}
 
-	public void startTransaction(String name) {
+	private void startTransaction(String name) {
 		for (Iterator i = registeredHandler.iterator(); i.hasNext();) {
 			ActionHandler handler = (ActionHandler) i.next();
 			handler.startTransaction(name);
 		}
 	}
 
-	public void endTransaction(String name) {
+	private void endTransaction(String name) {
 		for (Iterator i = registeredHandler.iterator(); i.hasNext();) {
 			ActionHandler handler = (ActionHandler) i.next();
 			handler.endTransaction(name);
@@ -111,28 +129,39 @@ public class ActionFactory {
 	}
 
 	/**
+	 * @return see {@link #executeAction(ActionPair)}
+	 */
+	public boolean doTransaction(String pName, ActionPair pPair) {
+		this.startTransaction(pName);
+		boolean result = this.executeAction(pPair);
+		this.endTransaction(pName);
+		return result;
+	}
+
+	/**
 	 * @return the success of the action. If an exception arises, the method
 	 *         returns false.
 	 */
-	public boolean executeAction(ActionPair pair) {
+	private boolean executeAction(ActionPair pair) {
 		if (pair == null)
 			return false;
 		boolean returnValue = true;
+		// register for undo first, as the filter things are repeated when the
+		// undo is executed as well!
+		if (undoActionHandler != null) {
+			try {
+				undoActionHandler.executeAction(pair);
+			} catch (Exception e) {
+				freemind.main.Resources.getInstance().logException(e);
+				returnValue = false;
+			}
+		}
+
 		ActionPair filteredPair = pair;
 		// first filter:
 		for (Iterator i = registeredFilters.iterator(); i.hasNext();) {
 			ActionFilter filter = (ActionFilter) i.next();
 			filteredPair = filter.filterAction(filteredPair);
-		}
-
-		// register for undo
-		if (undoActionHandler != null) {
-			try {
-				undoActionHandler.executeAction(filteredPair);
-			} catch (Exception e) {
-				freemind.main.Resources.getInstance().logException(e);
-				returnValue = false;
-			}
 		}
 
 		Object[] aArray = registeredHandler.toArray();

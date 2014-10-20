@@ -16,7 +16,6 @@
  *along with this program; if not, write to the Free Software
  *Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
-/* $Id: NodeAdapter.java,v 1.20.16.20.2.44 2008/12/10 22:10:46 christianfoltin Exp $ */
 
 package freemind.modes;
 
@@ -135,8 +134,23 @@ public abstract class NodeAdapter implements MindMapNode {
 	private FreeMindMain frame;
 	private static final boolean ALLOWSCHILDREN = true;
 	private static final boolean ISLEAF = false; // all nodes may have children
+	/** read only empty attribute class */
 	private static final NodeAttributeTableModel EMTPY_ATTRIBUTES = new NodeAttributeTableModel(
-			null);
+			null) {
+		public void insertRow(int index, String name, String value) {
+			throw new IllegalArgumentException(
+					"Can't set attributes in the EMTPY_ATTRIBUTES table.");
+		};
+
+		public void addRowNoUndo(Attribute newAttribute) {
+			throw new IllegalArgumentException(
+					"Can't set attributes in the EMTPY_ATTRIBUTES table.");
+		};
+
+		public Vector getAttributes() {
+			return new Vector();
+		};
+	};
 
 	private HistoryInformation historyInformation = null;
 	// Logging:
@@ -592,17 +606,18 @@ public abstract class NodeAdapter implements MindMapNode {
 	}
 
 	/**
-	 * @return true, if one of its parents is folded. If itself is folded, doesn't matter.
+	 * @return true, if one of its parents is folded. If itself is folded,
+	 *         doesn't matter.
 	 */
 	public boolean hasFoldedParents() {
-		if(isRoot())
+		if (isRoot())
 			return false;
-		if(getParentNode().isFolded()) {
+		if (getParentNode().isFolded()) {
 			return true;
 		}
 		return getParentNode().hasFoldedParents();
 	}
-	
+
 	public void setFolded(boolean folded) {
 		this.folded = folded;
 	}
@@ -632,24 +647,24 @@ public abstract class NodeAdapter implements MindMapNode {
 		return getText();
 	}
 
-	public boolean isChildOf(MindMapNode pParentNode) {
+	public boolean isDescendantOf(MindMapNode pParentNode) {
 		if (this.isRoot())
 			return false;
 		else if (pParentNode == getParentNode())
 			return true;
 		else
-			return getParentNode().isChildOf(pParentNode);
+			return getParentNode().isDescendantOf(pParentNode);
 	}
 
 	public boolean isRoot() {
 		return (parent == null);
 	}
 
-	public boolean isChildOfOrEqual(MindMapNode pParentNode) {
+	public boolean isDescendantOfOrEqual(MindMapNode pParentNode) {
 		if (this == pParentNode) {
 			return true;
 		}
-		return isChildOf(pParentNode);
+		return isDescendantOf(pParentNode);
 	}
 
 	public boolean hasChildren() {
@@ -671,34 +686,39 @@ public abstract class NodeAdapter implements MindMapNode {
 				: Collections.EMPTY_LIST.listIterator();
 	}
 
-	/* (non-Javadoc)
+	/*
+	 * (non-Javadoc)
+	 * 
 	 * @see freemind.modes.MindMapNode#sortedChildrenUnfolded()
 	 */
 	public ListIterator sortedChildrenUnfolded() {
 		if (children == null)
 			return null;
 		LinkedList sorted = new LinkedList(children);
-		/* 
-		 * Using this stable sort, we assure that the left nodes came in front of the right ones.
-		 * */
+		/*
+		 * Using this stable sort, we assure that the left nodes came in front
+		 * of the right ones.
+		 */
 		Collections.sort(sorted, new Comparator() {
 
 			public int compare(Object pO1, Object pO2) {
-				return comp(((MindMapNode) pO2).isLeft(), ((MindMapNode) pO1).isLeft());
+				return comp(((MindMapNode) pO2).isLeft(),
+						((MindMapNode) pO1).isLeft());
 			}
 
 			private int comp(boolean pLeft, boolean pLeft2) {
-				if(pLeft == pLeft2) {
+				if (pLeft == pLeft2) {
 					return 0;
 				}
-				if(pLeft){
+				if (pLeft) {
 					return 1;
 				}
 				return -1;
-			}});
+			}
+		});
 		return sorted.listIterator();
 	}
-	
+
 	public ListIterator childrenFolded() {
 		if (isFolded()) {
 			return Collections.EMPTY_LIST.listIterator();
@@ -1017,6 +1037,7 @@ public abstract class NodeAdapter implements MindMapNode {
 		// perform "nodeChanged"
 		// calls without having its own updateNodeHook method to be called
 		// again.
+		String name = hook.getName();
 		createActivatedHooks();
 		if (activatedHooks.contains(hook)) {
 			activatedHooks.remove(hook);
@@ -1029,6 +1050,7 @@ public abstract class NodeAdapter implements MindMapNode {
 		hooks.remove(hook);
 		if (hooks.size() == 0)
 			hooks = null;
+		logger.fine("Removed hook " + name + " at " + hook + ".");
 	}
 
 	public void removeAllHooks() {
@@ -1099,7 +1121,8 @@ public abstract class NodeAdapter implements MindMapNode {
 			htmlElement.setName(XMLElementAdapter.XML_NODE_XHTML_CONTENT_TAG);
 			htmlElement.setAttribute(XMLElementAdapter.XML_NODE_XHTML_TYPE_TAG,
 					XMLElementAdapter.XML_NODE_XHTML_TYPE_NODE);
-			htmlElement.setEncodedContent(convertToEncodedContent(getXmlText()));
+			htmlElement
+					.setEncodedContent(convertToEncodedContent(getXmlText()));
 			node.addChild(htmlElement);
 		}
 		if (getXmlNoteText() != null) {
@@ -1107,7 +1130,8 @@ public abstract class NodeAdapter implements MindMapNode {
 			htmlElement.setName(XMLElementAdapter.XML_NODE_XHTML_CONTENT_TAG);
 			htmlElement.setAttribute(XMLElementAdapter.XML_NODE_XHTML_TYPE_TAG,
 					XMLElementAdapter.XML_NODE_XHTML_TYPE_NOTE);
-			htmlElement.setEncodedContent(convertToEncodedContent(getXmlNoteText()));
+			htmlElement
+					.setEncodedContent(convertToEncodedContent(getXmlNoteText()));
 			node.addChild(htmlElement);
 
 		}
@@ -1128,12 +1152,22 @@ public abstract class NodeAdapter implements MindMapNode {
 			node.addChild(cloud);
 		}
 
-		Vector linkVector = registry.getAllLinksFromMe(this); /* Puh... */
+		Vector linkVector = registry.getAllLinksFromMe(this);
 		for (int i = 0; i < linkVector.size(); ++i) {
 			if (linkVector.get(i) instanceof ArrowLinkAdapter) {
 				XMLElement arrowLinkElement = ((ArrowLinkAdapter) linkVector
 						.get(i)).save();
 				node.addChild(arrowLinkElement);
+			}
+		}
+
+		// virtual link targets:
+		Vector targetVector = registry.getAllLinksIntoMe(this);
+		for (int i = 0; i < targetVector.size(); ++i) {
+			if (targetVector.get(i) instanceof ArrowLinkAdapter) {
+				XMLElement arrowLinkTargetElement = ((ArrowLinkAdapter) targetVector
+						.get(i)).createArrowLinkTarget(registry).save();
+				node.addChild(arrowLinkTargetElement);
 			}
 		}
 
@@ -1277,7 +1311,7 @@ public abstract class NodeAdapter implements MindMapNode {
 		return shiftY;
 	}
 
-	public boolean hasOneVisibleChild() {
+	public boolean hasExactlyOneVisibleChild() {
 		int count = 0;
 		for (ListIterator i = childrenUnfolded(); i.hasNext();) {
 			if (((MindMapNode) i.next()).isVisible())
@@ -1288,10 +1322,18 @@ public abstract class NodeAdapter implements MindMapNode {
 		return count == 1;
 	}
 
+	public boolean hasVisibleChilds() {
+		for (ListIterator i = childrenUnfolded(); i.hasNext();) {
+			if (((MindMapNode) i.next()).isVisible())
+				return true;
+		}
+		return false;
+	}
+
 	public int calcShiftY() {
 		try {
 			// return 0;
-			return shiftY + (parent.hasOneVisibleChild() ? SHIFT : 0);
+			return shiftY + (parent.hasExactlyOneVisibleChild() ? SHIFT : 0);
 		} catch (NullPointerException e) {
 			return 0;
 		}

@@ -69,10 +69,8 @@ public class ColorArrowLinkAction extends FreemindAction implements ActorXml {
 	}
 
 	public void setArrowLinkColor(MindMapLink arrowLink, Color color) {
-		controller.getActionFactory().startTransaction((String) getValue(NAME));
-		controller.getActionFactory().executeAction(
+		controller.doTransaction((String) getValue(NAME),
 				getActionPair(arrowLink, color));
-		controller.getActionFactory().endTransaction((String) getValue(NAME));
 	}
 
 	/**
@@ -85,7 +83,7 @@ public class ColorArrowLinkAction extends FreemindAction implements ActorXml {
 	public void act(XmlAction action) {
 		if (action instanceof ArrowLinkColorXmlAction) {
 			ArrowLinkColorXmlAction colorAction = (ArrowLinkColorXmlAction) action;
-			MindMapLink link = getLinkRegistry().getLinkForID(
+			MindMapLink link = getLinkRegistry().getLinkForId(
 					colorAction.getId());
 			((LineAdapter) link).setColor(Tools.xmlToColor(colorAction
 					.getColor()));
@@ -101,7 +99,7 @@ public class ColorArrowLinkAction extends FreemindAction implements ActorXml {
 			MindMapLink arrowLink, Color color) {
 		ArrowLinkColorXmlAction action = new ArrowLinkColorXmlAction();
 		action.setColor(Tools.colorToXml(color));
-		action.setId(arrowLink.getUniqueID());
+		action.setId(arrowLink.getUniqueId());
 		return action;
 	}
 

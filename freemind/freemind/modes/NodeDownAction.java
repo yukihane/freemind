@@ -19,11 +19,11 @@
  *
  * Created on 21.08.2004
  */
-/* $Id: NodeDownAction.java,v 1.1.4.3.2.1 2006/04/05 21:26:26 dpolivaev Exp $ */
 
 package freemind.modes;
 
 import java.awt.event.ActionEvent;
+import java.util.List;
 
 import javax.swing.AbstractAction;
 
@@ -38,7 +38,10 @@ public class NodeDownAction extends AbstractAction {
 	}
 
 	public void actionPerformed(ActionEvent e) {
-		modeController.moveNodes(modeController.getSelected(),
-				modeController.getSelecteds(), 1);
+		MindMapNode selected = modeController.getSelected();
+		List selecteds = modeController.getSelecteds();
+		modeController.moveNodes(selected, selecteds, 1);
+		modeController.select(selected, selecteds);
+
 	}
 }

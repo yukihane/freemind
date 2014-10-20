@@ -31,7 +31,7 @@ public abstract class ArrowLinkAdapter extends LinkAdapter implements
 
 	/** the zero is the start point of the line; */
 	protected Point startInclination;
-	/** the zero is the start point of the line; */
+	/** the zero is the end point of the line; */
 	protected Point endInclination;
 	protected String startArrow;
 	protected String endArrow;
@@ -124,8 +124,8 @@ public abstract class ArrowLinkAdapter extends LinkAdapter implements
 		if (style != null) {
 			arrowLink.setAttribute("STYLE", style);
 		}
-		if (getUniqueID() != null) {
-			arrowLink.setAttribute("ID", getUniqueID());
+		if (getUniqueId() != null) {
+			arrowLink.setAttribute("ID", getUniqueId());
 		}
 		if (color != null) {
 			arrowLink.setAttribute("COLOR", Tools.colorToXml(color));
@@ -149,6 +149,28 @@ public abstract class ArrowLinkAdapter extends LinkAdapter implements
 		if (getEndArrow() != null)
 			arrowLink.setAttribute("ENDARROW", (getEndArrow()));
 		return arrowLink;
+	}
+	
+	public ArrowLinkTarget createArrowLinkTarget(MindMapLinkRegistry pRegistry) {
+		ArrowLinkTarget linkTarget = new ArrowLinkTarget(source, target, frame);
+		linkTarget.setSourceLabel(pRegistry.getLabel(source));
+		copy(linkTarget);
+		return linkTarget;
+	}
+
+	protected void copy(ArrowLinkAdapter linkTarget) {
+		linkTarget.setUniqueId(getUniqueId());
+		linkTarget.setColor(getColor());
+		linkTarget.setDestinationLabel(getDestinationLabel());
+		linkTarget.setEndArrow(getEndArrow());
+		linkTarget.setEndInclination(getEndInclination());
+		linkTarget.setReferenceText(getReferenceText());
+		linkTarget.setStartArrow(getStartArrow());
+		linkTarget.setStartInclination(getStartInclination());
+		linkTarget.setStyle(getStyle());
+		linkTarget.setTarget(getTarget());
+		linkTarget.setWidth(getWidth());
+		linkTarget.setSource(getSource());
 	}
 
 }

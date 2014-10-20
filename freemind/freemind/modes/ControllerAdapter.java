@@ -16,7 +16,6 @@
  *along with this program; if not, write to the Free Software
  *Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
-/* $Id: ControllerAdapter.java,v 1.41.14.37.2.58 2010/01/25 20:17:59 christianfoltin Exp $ */
 
 package freemind.modes;
 
@@ -83,7 +82,6 @@ import freemind.controller.actions.generated.instance.NodeListMember;
 import freemind.extensions.PermanentNodeHook;
 import freemind.main.FreeMindCommon;
 import freemind.main.FreeMindMain;
-import freemind.main.HtmlTools;
 import freemind.main.Resources;
 import freemind.main.Tools;
 import freemind.main.XMLElement;
@@ -103,7 +101,8 @@ import freemind.view.mindmapview.attributeview.AttributeView;
  * default Actions you may want to use for easy editing of your model. Take
  * MindMapController as a sample.
  */
-public abstract class ControllerAdapter implements ModeController, DirectoryResultListener {
+public abstract class ControllerAdapter implements ModeController,
+		DirectoryResultListener {
 
 	// Logging:
 	private static java.util.logging.Logger logger;
@@ -229,21 +228,6 @@ public abstract class ControllerAdapter implements ModeController, DirectoryResu
 	}
 
 	public void onLostFocusNode(NodeView node) {
-		// select the new node:
-		for (Iterator iter = mNodeSelectionListeners.iterator(); iter.hasNext();) {
-			NodeSelectionListener listener = (NodeSelectionListener) iter
-					.next();
-			listener.onFocusNode(node);
-		}
-		for (Iterator i = node.getModel().getActivatedHooks().iterator(); i
-				.hasNext();) {
-			PermanentNodeHook hook = (PermanentNodeHook) i.next();
-			hook.onFocusNode(node);
-		}
-
-	}
-
-	public void onFocusNode(NodeView node) {
 		try {
 			// deselect the old node:
 			HashSet copy = new HashSet(mNodeSelectionListeners);
@@ -265,6 +249,28 @@ public abstract class ControllerAdapter implements ModeController, DirectoryResu
 
 	}
 
+	public void onFocusNode(NodeView node) {
+		try {
+			// select the new node:
+			HashSet copy = new HashSet(mNodeSelectionListeners);
+			// we copied the set to be able to remove listeners during a
+			// listener method.
+			for (Iterator iter = copy.iterator(); iter.hasNext();) {
+				NodeSelectionListener listener = (NodeSelectionListener) iter
+						.next();
+				listener.onFocusNode(node);
+			}
+			for (Iterator i = node.getModel().getActivatedHooks().iterator(); i
+					.hasNext();) {
+				PermanentNodeHook hook = (PermanentNodeHook) i.next();
+				hook.onFocusNode(node);
+			}
+		} catch (RuntimeException e) {
+			logger.log(Level.SEVERE, "Error in node selection listeners", e);
+		}
+
+	}
+
 	public void changeSelection(NodeView pNode, boolean pIsSelected) {
 		try {
 			HashSet copy = new HashSet(mNodeSelectionListeners);
@@ -276,7 +282,7 @@ public abstract class ControllerAdapter implements ModeController, DirectoryResu
 		} catch (RuntimeException e) {
 			logger.log(Level.SEVERE, "Error in node selection listeners", e);
 		}
-		
+
 	}
 
 	public void onViewCreatedHook(NodeView node) {
@@ -295,15 +301,17 @@ public abstract class ControllerAdapter implements ModeController, DirectoryResu
 		}
 	}
 
-	public void registerNodeSelectionListener(NodeSelectionListener listener, boolean pCallWithCurrentSelection) {
+	public void registerNodeSelectionListener(NodeSelectionListener listener,
+			boolean pCallWithCurrentSelection) {
 		mNodeSelectionListeners.add(listener);
-		if(pCallWithCurrentSelection) {
+		if (pCallWithCurrentSelection) {
 			try {
 				listener.onFocusNode(getSelectedView());
 			} catch (Exception e) {
 				freemind.main.Resources.getInstance().logException(e);
 			}
-			for (Iterator it = getView().getSelecteds().iterator(); it.hasNext();) {
+			for (Iterator it = getView().getSelecteds().iterator(); it
+					.hasNext();) {
 				NodeView view = (NodeView) it.next();
 				try {
 					listener.onSelectionChange(view, true);
@@ -318,12 +326,14 @@ public abstract class ControllerAdapter implements ModeController, DirectoryResu
 		mNodeSelectionListeners.remove(listener);
 	}
 
-	public void registerNodeLifetimeListener(NodeLifetimeListener listener) {
+	public void registerNodeLifetimeListener(NodeLifetimeListener listener, boolean pFireCreateEvent) {
 		mNodeLifetimeListeners.add(listener);
-		// call create node for all:
-		// TODO: fc, 10.2.08: this event goes to all listeners. It should be for
-		// the new listener only?
-		fireRecursiveNodeCreateEvent(getRootNode());
+		if (pFireCreateEvent) {
+			// call create node for all:
+			// TODO: fc, 10.2.08: this event goes to all listeners. It should be for
+			// the new listener only?
+			fireRecursiveNodeCreateEvent(getRootNode());
+		}
 	}
 
 	public void deregisterNodeLifetimeListener(NodeLifetimeListener listener) {
@@ -616,6 +626,20 @@ public abstract class ControllerAdapter implements ModeController, DirectoryResu
 	}
 
 	/**
+	 *
+	 */
+	public void processUnfinishedLinksInHooks(NodeAdapter node) {
+		for (Iterator i = node.childrenUnfolded(); i.hasNext();) {
+			NodeAdapter child = (NodeAdapter) i.next();
+			processUnfinishedLinksInHooks(child);
+		}
+		for (Iterator i = node.getHooks().iterator(); i.hasNext();) {
+			PermanentNodeHook hook = (PermanentNodeHook) i.next();
+			hook.processUnfinishedLinks();
+		}
+	}
+
+	/**
 	 * fc, 24.1.2004: having two methods getSelecteds with different return
 	 * values (linkedlists of models resp. views) is asking for trouble. @see
 	 * MapView
@@ -642,7 +666,7 @@ public abstract class ControllerAdapter implements ModeController, DirectoryResu
 		getView().scrollNodeToVisible(node);
 		getView().selectAsTheOnlyOneSelected(node);
 		// this level is default
-		getView().setSiblingMaxLevel(node.getModel().getNodeLevel()); 
+		getView().setSiblingMaxLevel(node.getModel().getNodeLevel());
 	}
 
 	public void select(MindMapNode primarySelected, List selecteds) {
@@ -663,6 +687,7 @@ public abstract class ControllerAdapter implements ModeController, DirectoryResu
 				}
 			}
 		}
+		getController().obtainFocusForSelected();
 	}
 
 	public void selectBranch(NodeView selected, boolean extend) {
@@ -807,13 +832,17 @@ public abstract class ControllerAdapter implements ModeController, DirectoryResu
 		getController().setTitle();
 	}
 
-	/* (non-Javadoc)
-	 * @see freemind.modes.FreeMindFileDialog.DirectoryResultListener#setChosenDirectory(java.io.File)
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * freemind.modes.FreeMindFileDialog.DirectoryResultListener#setChosenDirectory
+	 * (java.io.File)
 	 */
 	public void setChosenDirectory(File pDir) {
 		lastCurrentDir = pDir;
 	}
-	
+
 	/**
 	 * Creates a file chooser with the last selected directory as default.
 	 */
@@ -835,7 +864,7 @@ public abstract class ControllerAdapter implements ModeController, DirectoryResu
 			chooser.setCurrentDirectory(lastCurrentDir);
 		}
 		if (filter != null) {
-			chooser.addChoosableFileFilter(filter);
+			chooser.addChoosableFileFilterAsDefault(filter);
 		}
 		return chooser;
 	}
@@ -1018,11 +1047,11 @@ public abstract class ControllerAdapter implements ModeController, DirectoryResu
 	public void setVisible(boolean visible) {
 		NodeView node = getSelectedView();
 		if (visible) {
-			onLostFocusNode(node);
+			onFocusNode(node);
 		} else {
 			// bug fix, fc 18.5.2004. This should not be here.
 			if (node != null) {
-				onFocusNode(node);
+				onLostFocusNode(node);
 			}
 		}
 		changeSelection(node, !visible);
@@ -1172,12 +1201,12 @@ public abstract class ControllerAdapter implements ModeController, DirectoryResu
 		getController().getMapModuleManager().updateMapModuleName();
 	}
 
-	/* ***********************************************************
-	 * Helper methods **********************************************************
+	/**
+	 * @throws {@link IllegalArgumentException} when node isn't found.
 	 */
 	public NodeAdapter getNodeFromID(String nodeID) {
 		NodeAdapter node = (NodeAdapter) getMap().getLinkRegistry()
-				.getTargetForID(nodeID);
+				.getTargetForId(nodeID);
 		if (node == null) {
 			throw new IllegalArgumentException("Node belonging to the node id "
 					+ nodeID + " not found in map " + getMap().getFile());
@@ -1186,8 +1215,7 @@ public abstract class ControllerAdapter implements ModeController, DirectoryResu
 	}
 
 	public String getNodeID(MindMapNode selected) {
-		getMap().getLinkRegistry().registerLinkTarget(selected);
-		return getMap().getLinkRegistry().getLabel(selected);
+		return getMap().getLinkRegistry().registerLinkTarget(selected);
 	}
 
 	public MindMapNode getSelected() {
@@ -1549,12 +1577,7 @@ public abstract class ControllerAdapter implements ModeController, DirectoryResu
 			int index) {
 		getModel().insertNodeInto(newNode, parent, index);
 		// call hooks
-		for (Iterator iterator = mNodeLifetimeListeners.iterator(); iterator
-				.hasNext();) {
-			NodeLifetimeListener listener = (NodeLifetimeListener) iterator
-					.next();
-			listener.onCreateNodeHook(newNode);
-		}
+		fireRecursiveNodeCreateEvent(newNode);
 	}
 
 	/*
@@ -1592,6 +1615,5 @@ public abstract class ControllerAdapter implements ModeController, DirectoryResu
 		node.setToolTip(key, value);
 		nodeRefresh(node);
 	}
-
 
 }

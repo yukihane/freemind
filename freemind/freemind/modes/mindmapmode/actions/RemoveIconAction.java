@@ -19,7 +19,7 @@
  *
  * Created on 29.09.2004
  */
-/* $Id: RemoveIconAction.java,v 1.1.2.3 2008/04/10 20:49:21 dpolivaev Exp $ */
+
 
 package freemind.modes.mindmapmode.actions;
 
@@ -79,12 +79,8 @@ public class RemoveIconAction extends NodeGeneralAction implements
 	}
 
 	public int removeLastIcon(MindMapNode node) {
-		modeController.getActionFactory().startTransaction(
-				(String) getValue(NAME));
-		modeController.getActionFactory().executeAction(
-				apply(modeController.getMap(), node));
-		modeController.getActionFactory().endTransaction(
-				(String) getValue(NAME));
+		modeController.doTransaction(
+				(String) getValue(NAME), apply(modeController.getMap(), node));
 		return node.getIcons().size();
 	}
 

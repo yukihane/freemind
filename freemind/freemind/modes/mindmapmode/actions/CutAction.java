@@ -19,7 +19,7 @@
  *
  * Created on 09.05.2004
  */
-/* $Id: CutAction.java,v 1.1.2.2.2.13 2008/12/09 21:09:43 christianfoltin Exp $ */
+
 
 package freemind.modes.mindmapmode.actions;
 
@@ -121,10 +121,8 @@ public class CutAction extends AbstractAction implements ActorXml {
 
 		}
 		if (doAction.sizeChoiceList() > 0) {
-			mMindMapController.getActionFactory().startTransaction(text);
-			mMindMapController.getActionFactory().executeAction(
+			mMindMapController.doTransaction(text,
 					new ActionPair(doAction, undo));
-			mMindMapController.getActionFactory().endTransaction(text);
 		}
 		return totalCopy;
 	}
@@ -140,7 +138,6 @@ public class CutAction extends AbstractAction implements ActorXml {
 		CutNodeAction cutAction = (CutNodeAction) action;
 		MindMapNode selectedNode = mMindMapController.getNodeFromID(cutAction
 				.getNode());
-		mMindMapController.getModel().getLinkRegistry().cutNode(selectedNode);
 		mMindMapController.deleteChild.deleteWithoutUndo(selectedNode);
 	}
 

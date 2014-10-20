@@ -23,10 +23,13 @@
 
 package tests.freemind;
 
+import de.foltin.StringEncoder;
 import freemind.common.XmlBindingTools;
 import freemind.controller.actions.generated.instance.Pattern;
 import freemind.controller.actions.generated.instance.PatternChild;
 import freemind.controller.actions.generated.instance.Place;
+import freemind.controller.actions.generated.instance.Result;
+import freemind.controller.actions.generated.instance.Reversegeocode;
 import freemind.controller.actions.generated.instance.Searchresults;
 
 /**
@@ -35,18 +38,18 @@ import freemind.controller.actions.generated.instance.Searchresults;
  */
 public class MarshallerTests extends FreeMindTestBase {
 	/**
-	 * Newlines in attributes are handled correctly,
-	 * when they are omitted, AFAIK. Thus, this test is
-	 * commented out.
+	 * Newlines in Jibx attributes are handled correctly.
 	 */
-	public void _testNewLines() {
+	public void testNewLines() {
 		Pattern testPattern = new Pattern();
 		PatternChild patternChild = new PatternChild();
-		patternChild.setValue("test\ntest");
+		String value = "\\ntest\n\\test<>&";
+		patternChild.setValue(value);
+		assertEquals(value, patternChild.getValue());
 		testPattern.setPatternChild(patternChild);
 		testPattern.setName("test");
 		String marshall = XmlBindingTools.getInstance().marshall(testPattern);
-		// System.out.println(marshall);
+		System.out.println(marshall);
 		Pattern testPatternUnmarshalled = (Pattern) XmlBindingTools
 				.getInstance().unMarshall(marshall);
 		assertEquals("Newline is correctly marshalled?" + marshall,
@@ -54,6 +57,16 @@ public class MarshallerTests extends FreeMindTestBase {
 		assertEquals("Newline is correctly marshalled?" + marshall, testPattern
 				.getPatternChild().getValue(), testPatternUnmarshalled
 				.getPatternChild().getValue());
+	}
+
+	public void testStringEncoder() throws Exception {
+		String input = "\\ntest\n\\test";
+		String encodedString = StringEncoder.encode(input);
+		// System.out.println(encodedString);
+		assertEquals("\\\\ntest\\u000a\\\\test", encodedString);
+		String output = StringEncoder.decode(encodedString);
+		assertEquals(input, output);
+
 	}
 
 	public void testOsmNominatimConversion() throws Exception {
@@ -68,7 +81,32 @@ public class MarshallerTests extends FreeMindTestBase {
 								+ "  <place place_id=\"25440203\" osm_type=\"way\" osm_id=\"18869491\" place_rank=\"27\" boundingbox=\"43.5335311889648,43.5358810424805,-71.1356735229492,-71.1316146850586\" lat=\"43.5341678362733\" lon=\"-71.1338615946084\" display_name=\"Innsbruck, New Durham, Strafford County, New Hampshire, 03855, United States of America\" class=\"highway\" type=\"service\"/>\n"
 								+ "</searchresults>");
 		assertEquals(4, results.sizePlaceList());
-		assertEquals(47.2654296, ((Place) results.getListPlaceList().get(0)).getLat(), 0);
+		assertEquals(47.2654296,
+				((Place) results.getListPlaceList().get(0)).getLat(), 0);
+	}
+
+	public void testNominatimReverse() throws Exception {
+		Reversegeocode reverse = (Reversegeocode) XmlBindingTools
+				.getInstance()
+				.unMarshall(
+						"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+								+ "<reversegeocode timestamp=\"Wed, 10 Apr 13 17:42:51 +0000\" \n"
+								+ "attribution=\"Data © OpenStreetMap contributors, ODbL 1.0. http://www.openstreetmap.org/copyright\" \n"
+								+ "querystring=\"format=xml&amp;lat=52.45177267188509&amp;lon=13.28847885131836&amp;zoom=18&amp;addressdetails=1\">\n"
+								+ "<result place_id=\"97929939\" \n"
+								+ "osm_type=\"relation\" osm_id=\"32590\" " 
+//								+ "ref=\"Rost- und Silberlaube\" \n"
+								+ "lat=\"52.45222935\" lon=\"13.2890019049798\">Rost- und Silberlaube, 45, \n"
+								+ "Habelschwerdter Allee, Dahlem, Steglitz-Zehlendorf, Berlin, 14195, Germany, \n"
+								+ "European Union</result></reversegeocode>");
+		assertNotNull(reverse);
+		Result result = reverse.getResult(0);
+		assertEquals("correct place", "97929939", result
+				.getPlaceId());
+		String content = result.getContent();
+		assertNotNull(content);
+		String exp = "Rost- und Silberlaube, 45,";
+		assertEquals("Correct start", exp, content.substring(0, exp.length()));
 	}
 
 }

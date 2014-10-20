@@ -19,7 +19,7 @@
  *
  * Created on 02.05.2004
  */
-/* $Id: AbstractXmlAction.java,v 1.1.2.2.2.2 2006/07/25 20:28:29 christianfoltin Exp $ */
+
 
 package freemind.modes.mindmapmode.actions.xml;
 
@@ -54,23 +54,16 @@ public abstract class AbstractXmlAction extends FreemindAction {
 	 * java.awt.event.ActionListener#actionPerformed(java.awt.event.ActionEvent)
 	 */
 	final public void actionPerformed(ActionEvent arg0) {
-		getActionFactory().startTransaction(
-				(String) getValue(Action.SHORT_DESCRIPTION));
 		xmlActionPerformed(arg0);
-		getActionFactory().endTransaction(
-				(String) getValue(Action.SHORT_DESCRIPTION));
+	}
+
+	protected String getShortDescription() {
+		return (String) getValue(Action.SHORT_DESCRIPTION);
 	}
 
 	/**
 	 */
 	protected abstract void xmlActionPerformed(ActionEvent arg0);
-
-	/**
-	 *
-	 */
-	private ActionFactory getActionFactory() {
-		return getMindMapController().getActionFactory();
-	}
 
 	/**
 	 */
@@ -82,7 +75,8 @@ public abstract class AbstractXmlAction extends FreemindAction {
 		this.actor = actor;
 		if (actor != null) {
 			// registration:
-			getActionFactory().registerActor(actor, actor.getDoActionClass());
+			getMindMapController().getActionFactory().registerActor(actor,
+					actor.getDoActionClass());
 		}
 	}
 

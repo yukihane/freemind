@@ -20,10 +20,14 @@
  * 
  * Created on 05.10.2004
  */
-/* $Id: EdgeStyleAction.java,v 1.1.2.2.2.4 2008/04/12 20:11:39 christianfoltin Exp $ */
+
 
 package freemind.modes.mindmapmode.actions;
 
+import javax.swing.Action;
+import javax.swing.JMenuItem;
+
+import freemind.controller.MenuItemSelectedListener;
 import freemind.controller.actions.generated.instance.EdgeStyleFormatAction;
 import freemind.controller.actions.generated.instance.XmlAction;
 import freemind.main.Tools;
@@ -34,7 +38,7 @@ import freemind.modes.MindMapNode;
 import freemind.modes.mindmapmode.MindMapController;
 import freemind.modes.mindmapmode.actions.xml.ActionPair;
 
-public class EdgeStyleAction extends NodeGeneralAction implements NodeActorXml {
+public class EdgeStyleAction extends NodeGeneralAction implements NodeActorXml, MenuItemSelectedListener {
 	private String mStyle;
 
 	public EdgeStyleAction(MindMapController controller, String style) {
@@ -54,15 +58,11 @@ public class EdgeStyleAction extends NodeGeneralAction implements NodeActorXml {
 	}
 
 	public void setEdgeStyle(MindMapNode node, String style) {
-		if(Tools.safeEquals(style, getStyle(node))) {
+		if (Tools.safeEquals(style, getStyle(node))) {
 			return;
 		}
-		modeController.getActionFactory().startTransaction(
-				(String) getValue(NAME));
-		modeController.getActionFactory().executeAction(
-				getActionPair(node, style));
-		modeController.getActionFactory().endTransaction(
-				(String) getValue(NAME));
+		modeController.doTransaction(
+				(String) getValue(NAME), getActionPair(node, style));
 
 	}
 
@@ -102,5 +102,13 @@ public class EdgeStyleAction extends NodeGeneralAction implements NodeActorXml {
 				modeController.nodeChanged(node);
 			}
 		}
+	}
+
+	/* (non-Javadoc)
+	 * @see freemind.controller.MenuItemSelectedListener#isSelected(javax.swing.JMenuItem, javax.swing.Action)
+	 */
+	public boolean isSelected(JMenuItem pCheckItem, Action pAction) {
+		String style = getMindMapController().getSelected().getEdge().getStyle();
+		return Tools.safeEquals(style, mStyle);
 	}
 }

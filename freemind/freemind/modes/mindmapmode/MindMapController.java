@@ -16,13 +16,12 @@
  *along with this program; if not, write to the Free Software
  *Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
-/* $Id: MindMapController.java,v 1.35.14.21.2.81 2010/10/07 21:19:51 christianfoltin Exp $ */
+
 
 package freemind.modes.mindmapmode;
 
 import java.awt.Color;
 import java.awt.Component;
-import java.awt.EventQueue;
 import java.awt.Point;
 import java.awt.Toolkit;
 import java.awt.datatransfer.Clipboard;
@@ -53,6 +52,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Properties;
 import java.util.Set;
 import java.util.Vector;
 import java.util.logging.Logger;
@@ -829,16 +829,19 @@ public class MindMapController extends ControllerAdapter implements
 
 	public void nodeChanged(MindMapNode n) {
 		super.nodeChanged(n);
-		// only for the selected node (fc, 2.5.2004)
 		final MapModule mapModule = getController().getMapModule();
-		if (mapModule != null && n == mapModule.getView().getSelected()) {
+		// only for the selected node (fc, 2.5.2004)
+		if (mapModule != null && n == mapModule.getModeController().getSelected()) {
 			updateToolbar(n);
 		}
 	}
 
-	public void onLostFocusNode(NodeView n) {
-		super.onLostFocusNode(n);
-		updateToolbar(n.getModel());
+	/* (non-Javadoc)
+	 * @see freemind.modes.ControllerAdapter#onFocusNode(freemind.view.mindmapview.NodeView)
+	 */
+	public void onFocusNode(NodeView pNode) {
+		super.onFocusNode(pNode);
+		updateToolbar(pNode.getModel());
 	}
 
 	private void updateToolbar(MindMapNode n) {
@@ -1598,12 +1601,9 @@ public class MindMapController extends ControllerAdapter implements
 				parent.isNewChildLeft());
 	}
 
-	/**
-	 * @param isLeft
-	 *            determines, whether or not the node is placed on the left or
-	 *            right.
-	 * @return true, if successfully.
-	 **/
+	/* (non-Javadoc)
+	 * @see freemind.modes.mindmapmode.actions.MindMapActions#paste(java.awt.datatransfer.Transferable, freemind.modes.MindMapNode, boolean, boolean)
+	 */
 	public boolean paste(Transferable t, MindMapNode target, boolean asSibling,
 			boolean isLeft) {
 		if (!asSibling
@@ -1666,7 +1666,8 @@ public class MindMapController extends ControllerAdapter implements
 
 		String relative = getLinkByFileChooser(filter);
 		if (relative != null) {
-			String strText = "<html><body><img src=\"" + relative + "\"/></body></html>";
+			String strText = "<html><body><img src=\"" + relative
+					+ "\"/></body></html>";
 			setNodeText((MindMapNode) getSelected(), strText);
 		}
 	}
@@ -1707,8 +1708,8 @@ public class MindMapController extends ControllerAdapter implements
 		super.loadURL(relative);
 	}
 
-	public void addHook(MindMapNode focussed, List selecteds, String hookName) {
-		nodeHookAction.addHook(focussed, selecteds, hookName);
+	public void addHook(MindMapNode focussed, List selecteds, String hookName, Properties pHookProperties) {
+		nodeHookAction.addHook(focussed, selecteds, hookName, pHookProperties);
 	}
 
 	public void removeHook(MindMapNode focussed, List selecteds, String hookName) {
@@ -2187,6 +2188,9 @@ public class MindMapController extends ControllerAdapter implements
 
 	public void removeNodeFromParent(MindMapNode selectedNode) {
 		getModel().setSaved(false);
+		// first deselect, and then remove. 
+		NodeView nodeView = getView().getNodeView(selectedNode);
+		getView().deselect(nodeView);
 		getModel().removeNodeFromParent(selectedNode);
 	}
 
@@ -2256,10 +2260,8 @@ public class MindMapController extends ControllerAdapter implements
 		EditNoteToNodeAction doAction = createEditNoteToNodeAction(node, text);
 		EditNoteToNodeAction undoAction = createEditNoteToNodeAction(node,
 				oldNoteText);
-		getActionFactory().startTransaction(ACCESSORIES_PLUGINS_NODE_NOTE);
-		getActionFactory().executeAction(new ActionPair(doAction, undoAction));
-		getActionFactory().endTransaction(ACCESSORIES_PLUGINS_NODE_NOTE);
-
+		getActionFactory().doTransaction(ACCESSORIES_PLUGINS_NODE_NOTE,
+				new ActionPair(doAction, undoAction));
 	}
 
 	public void registerPlugin(MindMapControllerPlugin pPlugin) {
@@ -2307,7 +2309,7 @@ public class MindMapController extends ControllerAdapter implements
 	public boolean mapSourceChanged(MindMap pMap) throws Exception {
 		// ask the user, if he wants to reload the map.
 		MapSourceChangeDialog runnable = new MapSourceChangeDialog();
-		EventQueue.invokeAndWait(runnable);
+		Tools.invokeAndWait(runnable);
 		return runnable.getReturnValue();
 	}
 
@@ -2337,6 +2339,10 @@ public class MindMapController extends ControllerAdapter implements
 	public void obtainFocusForSelected() {
 		getController().obtainFocusForSelected();
 
+	}
+
+	public boolean doTransaction(String pName, ActionPair pPair) {
+		return actionFactory.doTransaction(pName, pPair);
 	}
 
 }

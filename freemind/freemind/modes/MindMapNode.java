@@ -16,7 +16,7 @@
  *along with this program; if not, write to the Free Software
  *Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
-/* $Id: MindMapNode.java,v 1.15.18.14.2.21 2010/09/11 20:13:46 christianfoltin Exp $ */
+
 
 package freemind.modes;
 
@@ -197,7 +197,7 @@ public interface MindMapNode extends MutableTreeNode {
 	 * Returns whether the argument is parent or parent of one of the grandpa's
 	 * of this node. (transitive)
 	 */
-	boolean isChildOf(MindMapNode node);
+	boolean isDescendantOf(MindMapNode node);
 
 	/**
 	 * If the test node is identical or in the same family and elder as the
@@ -206,7 +206,7 @@ public interface MindMapNode extends MutableTreeNode {
 	 * 
 	 * @see isDecendantOf
 	 */
-	boolean isChildOfOrEqual(MindMapNode pParentNode);
+	boolean isDescendantOfOrEqual(MindMapNode pParentNode);
 
 	boolean isRoot();
 
@@ -359,8 +359,16 @@ public interface MindMapNode extends MutableTreeNode {
 
 	boolean isVisible();
 
-	boolean hasOneVisibleChild();
+	/**
+	 * @return true, if there is exactly one visible child.
+	 */
+	boolean hasExactlyOneVisibleChild();
 
+	/**
+	 * @return true, if there is at least one visible child.
+	 */
+	boolean hasVisibleChilds();
+	
 	MindMap getMap();
 
 	/**

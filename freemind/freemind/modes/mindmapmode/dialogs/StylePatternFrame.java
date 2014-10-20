@@ -19,7 +19,7 @@
  *
  * Created on 25.02.2006
  */
-/* $Id: StylePatternFrame.java,v 1.1.2.10.2.9 2008/04/11 16:58:32 christianfoltin Exp $ */
+
 package freemind.modes.mindmapmode.dialogs;
 
 import java.awt.BorderLayout;
@@ -370,7 +370,7 @@ public class StylePatternFrame extends JPanel implements TextTranslator,
 		for (int i = 0; i < sizes.length; i++) {
 			sizesVector.add(sizes[i]);
 		}
-		mNodeFontSize = new ComboProperty(NODE_FONT_SIZE + ".tooltip",
+		mNodeFontSize = new IntegerComboProperty(NODE_FONT_SIZE + ".tooltip",
 				NODE_FONT_SIZE, sizes, sizesVector);
 		controls.add(mNodeFontSize);
 		mSetNodeFontBold = new ThreeCheckBoxProperty(SET_NODE_FONT_BOLD

@@ -29,6 +29,7 @@ import java.io.StringReader;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Iterator;
+import java.util.Properties;
 import java.util.Vector;
 
 import freemind.main.FreeMindSecurityManager;
@@ -41,6 +42,19 @@ import freemind.modes.mindmapmode.MindMapMapModel;
  * @date 30.06.2011
  */
 public class ToolsTests extends FreeMindTestBase {
+
+	/**
+	 * 
+	 */
+	private static final String UNIX_PATH_WITH_SPEACIAL_CHAR = "/Users/foltin/downloads/Ja\u0308nstra\u00dfe 270c.pdf";
+	/**
+	 * 
+	 */
+	private static final String WINDOWS_PATH_WITH_SPECIAL_CHAR = "o:\\Users\\foltin\\downloads\\Ja\u0308nstra\u00dfe 270c.pdf";
+	/**
+	 * 
+	 */
+	private static final String WINDOWS_PATH_C_USERS_TMP_IM_MM = "c:\\Users\\foltin\\tmp\\im.mm";
 
 	/*
 	 * (non-Javadoc)
@@ -93,7 +107,7 @@ public class ToolsTests extends FreeMindTestBase {
 
 	public void testUrlConversion() throws Exception {
 		File input = new File(
-				"/Users/foltin/downloads/Ja\u0308nstra\u00dfe 270c.pdf");
+				UNIX_PATH_WITH_SPEACIAL_CHAR);
 		System.out.println("input file " + input);
 		URL url = Tools.fileToUrl(input);
 		String externalForm = HtmlTools.unicodeToHTMLUnicodeEntity(
@@ -108,9 +122,33 @@ public class ToolsTests extends FreeMindTestBase {
 
 	}
 
+	/**
+	 * To be tested under windows
+	 */
+	public void testRelativeUrlsWindows() throws Exception {
+		if (Tools.isWindows()) {
+			String pathname = WINDOWS_PATH_WITH_SPECIAL_CHAR;
+			File input = new File(pathname);
+			String expected = pathname;
+			File mapFile = new File(WINDOWS_PATH_C_USERS_TMP_IM_MM);
+			testCorrectRelativism(input, expected, mapFile);
+		}
+	}
+
+	public void testGetPrefix() throws Exception {
+		if (Tools.isWindows()) {
+			  assertEquals("c:\\", 
+					Tools.getPrefix(WINDOWS_PATH_C_USERS_TMP_IM_MM).toString());
+		} else {
+			assertEquals("/",
+					Tools.getPrefix(UNIX_PATH_WITH_SPEACIAL_CHAR).toString());
+			
+		}
+	}
+	
 	public void testRelativeUrls() throws Exception {
 		File input = new File(
-				"/Users/foltin/downloads/Ja\u0308nstra\u00dfe 270c.pdf");
+				UNIX_PATH_WITH_SPEACIAL_CHAR);
 		String expected = "../downloads/Ja\u0308nstra\u00dfe%20270c.pdf";
 		File mapFile = new File("/Users/foltin/tmp/im.mm");
 		testCorrectRelativism(input, expected, mapFile);
@@ -128,7 +166,7 @@ public class ToolsTests extends FreeMindTestBase {
 
 	public void testRelativeUrls3() throws Exception {
 		File input = new File(
-				"/Users/foltin/downloads/Ja\u0308nstra\u00dfe 270c.pdf");
+				UNIX_PATH_WITH_SPEACIAL_CHAR);
 		String expected = "../../../downloads/Ja\u0308nstra\u00dfe%20270c.pdf";
 		File mapFile = new File("/Users/foltin/tmp/subdir1/subdir2/im.mm");
 		testCorrectRelativism(input, expected, mapFile);
@@ -137,7 +175,7 @@ public class ToolsTests extends FreeMindTestBase {
 
 	public void testRelativeUrls4() throws Exception {
 		File input = new File(
-				"/Users/foltin/downloads/Ja\u0308nstra\u00dfe 270c.pdf");
+				UNIX_PATH_WITH_SPEACIAL_CHAR);
 		String expected = "Ja\u0308nstra\u00dfe%20270c.pdf";
 		File mapFile = new File("/Users/foltin/downloads/im.mm");
 		testCorrectRelativism(input, expected, mapFile);
@@ -174,14 +212,17 @@ public class ToolsTests extends FreeMindTestBase {
 		doUpdate();
 	}
 
-	public void testUpdateWithSecurityManager() throws FileNotFoundException, IOException {
-		/** Due to a java bug (in version 7 update 4), setting a security manager
-		 * (this is normally done in FreeMind)
-		 * breaks the update. This is tested here. */
+	public void testUpdateWithSecurityManager() throws FileNotFoundException,
+			IOException {
+		/**
+		 * Due to a java bug (in version 7 update 4), setting a security manager
+		 * (this is normally done in FreeMind) breaks the update. This is tested
+		 * here.
+		 */
 		System.setSecurityManager(new FreeMindSecurityManager());
 		doUpdate();
 	}
-	
+
 	protected void doUpdate() throws IOException {
 		String input = "<map version=\"0.9.0\">"
 				+ "<!-- To view this file, download free mind mapping software FreeMind from http://freemind.sourceforge.net -->"
@@ -208,10 +249,67 @@ public class ToolsTests extends FreeMindTestBase {
 		Tools.setPageFormatFromString(paper2, pageFormatAsString);
 		assertEquals(paper.getHeight(), paper2.getHeight(), 0d);
 		assertEquals(paper.getWidth(), paper2.getWidth(), 0d);
-		assertEquals(paper.getImageableHeight(), paper2.getImageableHeight(), 0d);
+		assertEquals(paper.getImageableHeight(), paper2.getImageableHeight(),
+				0d);
 		assertEquals(paper.getImageableWidth(), paper2.getImageableWidth(), 0d);
 		assertEquals(paper.getImageableX(), paper2.getImageableX(), 0d);
 		assertEquals(paper.getImageableY(), paper2.getImageableY(), 0d);
 	}
+
+	private class A {
+
+	}
+
+	private class B extends A {
+
+	}
+
+	private boolean visit(A pA) {
+		return true;
+	}
+
+	private boolean visit(B pA) {
+		return false;
+	}
+
+	/**
+	 * 
+	 */
+	public void testVisitor() {
+		A a = new A();
+		B b = new B();
+		A castedB = b;
+		assertTrue(visit(a));
+		assertFalse(visit(b));
+		/*
+		 * I don't understand this: no polymorphism is applied to the call of
+		 * visit in this case, as the visit(a) method is called, although, a is
+		 * of class B! If anybody can explain this to me, please write an email
+		 * to me (chris).
+		 */
+		assertTrue(visit(castedB));
+	}
+
+	public void testKeyDocumentationPathConversion() throws Exception {
+		String file = "c:\\home\\java\\freemind\\0_9_0\\bin\\dist\\doc/FM_Key_Mappings_Quick_Guide.pdf";
+		System.out.println(Tools.urlToFile(Tools.fileToUrl(new File(file))));
+	}
 	
+	public void testChangedProperties() throws Exception {
+		Properties def = new Properties();
+		Properties changed = new Properties();
+		String key = "blabla";
+		String key2 = "notexistent";
+		String key3 = "notpresentindef";
+		String key4 = "equal";
+		def.put(key, "A");
+		changed.put(key, "B");
+		def.put(key4, "A");
+		changed.put(key4, "A");
+		def.put(key2, "default");
+		changed.put(key3, "new value");
+		Properties copy = Tools.copyChangedProperties(changed, def);
+		assertEquals(2, copy.keySet().size());
+		
+	}
 }

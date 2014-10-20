@@ -49,11 +49,11 @@ public class FreeMindCommon {
 
 	public static final String POSTFIX_TRANSLATE_ME = "[translate me]";
 
-	private class FreemindResourceBundle extends ResourceBundle {
+	private class FreeMindResourceBundle extends ResourceBundle {
 		private PropertyResourceBundle languageResources;
 		private PropertyResourceBundle defaultResources;
 
-		FreemindResourceBundle() {
+		FreeMindResourceBundle() {
 			try {
 				String lang = getProperty(RESOURCE_LANGUAGE);
 				if (lang == null || lang.equals("automatic")) {
@@ -129,8 +129,13 @@ public class FreeMindCommon {
 			try {
 				return languageResources.getString(key);
 			} catch (Exception ex) {
-				logger.severe("Warning - resource string not found:\n" + key);
-				return defaultResources.getString(key) + POSTFIX_TRANSLATE_ME;
+				if(key != null && key.startsWith("__")) {
+					// private string, only translate on demand
+					return key;
+				} else {
+					logger.severe("Warning - resource string not found:\n" + key);
+					return defaultResources.getString(key) + POSTFIX_TRANSLATE_ME;
+				}
 			}
 		}
 
@@ -176,7 +181,7 @@ public class FreeMindCommon {
 
 	private String baseDir;
 
-	private FreemindResourceBundle resources;
+	private FreeMindResourceBundle resources;
 
 	/**
 	 * Holds the last opened map.
@@ -234,17 +239,17 @@ public class FreeMindCommon {
 	/** Returns the ResourceBundle with the current language */
 	public ResourceBundle getResources() {
 		if (resources == null) {
-			resources = new FreemindResourceBundle();
+			resources = new FreeMindResourceBundle();
 		}
 		return resources;
 	}
 
 	public String getResourceString(String key) {
-		return ((FreemindResourceBundle) getResources()).getResourceString(key);
+		return ((FreeMindResourceBundle) getResources()).getResourceString(key);
 	}
 
 	public String getResourceString(String key, String pDefault) {
-		return ((FreemindResourceBundle) getResources()).getResourceString(key,
+		return ((FreeMindResourceBundle) getResources()).getResourceString(key,
 				pDefault);
 	}
 
@@ -368,7 +373,7 @@ public class FreeMindCommon {
 							"FreeMind base dir (!) '" + file
 									+ "' is not a directory.");
 				}
-				// set the static variable
+				// set the member variable
 				baseDir = file.getCanonicalPath();
 				logger.info("Basedir is: " + baseDir);
 			} catch (Exception e) {
@@ -377,7 +382,7 @@ public class FreeMindCommon {
 						"FreeMind base dir can't be determined.");
 			}
 		}
-		// return the value of the static variable
+		// return the value of the cache variable
 		return baseDir;
 	}
 
@@ -388,7 +393,7 @@ public class FreeMindCommon {
 		}
 		if (value.startsWith("?") && !value.equals("?")) {
 			// try to look in the language specific properties
-			String localValue = ((FreemindResourceBundle) getResources())
+			String localValue = ((FreeMindResourceBundle) getResources())
 					.getResourceString(LOCAL_PROPERTIES + label, null);
 			value = localValue == null ? value.substring(1).trim() : localValue;
 			setDefaultProperty(label, value);

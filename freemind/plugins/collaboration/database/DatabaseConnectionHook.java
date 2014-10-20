@@ -19,14 +19,18 @@
  *
  * Created on 28.12.2008
  */
-/* $Id: DatabaseConnectionHook.java,v 1.1.2.1 2009/02/04 19:31:21 christianfoltin Exp $ */
+
 
 package plugins.collaboration.database;
+
+import java.io.Writer;
+import java.lang.reflect.InvocationTargetException;
 
 import freemind.extensions.DontSaveMarker;
 import freemind.extensions.PermanentNodeHook;
 import freemind.main.XMLElement;
 import freemind.modes.MindMapNode;
+import freemind.modes.mindmapmode.actions.xml.ActionPair;
 import freemind.view.mindmapview.NodeView;
 
 /**
@@ -106,6 +110,40 @@ public class DatabaseConnectionHook extends DatabaseBasics implements
 
 	public Integer getRole() {
 		return ROLE_SLAVE;
+	}
+
+	/* (non-Javadoc)
+	 * @see freemind.extensions.PermanentNodeHook#executeTransaction(freemind.modes.mindmapmode.actions.xml.ActionPair)
+	 */
+	protected void executeTransaction(final ActionPair pair)
+			throws InterruptedException, InvocationTargetException {
+	}
+
+	/* (non-Javadoc)
+	 * @see freemind.extensions.PermanentNodeHook#registerFilter()
+	 */
+	public void registerFilter() {
+	}
+
+	/* (non-Javadoc)
+	 * @see freemind.extensions.PermanentNodeHook#deregisterFilter()
+	 */
+	public void deregisterFilter() {
+	}
+
+	/* (non-Javadoc)
+	 * @see freemind.extensions.PermanentNodeHook#filterAction(freemind.modes.mindmapmode.actions.xml.ActionPair)
+	 */
+	public ActionPair filterAction(ActionPair pPair) {
+		return null;
+	}
+	public void processUnfinishedLinks() {
+	}
+
+	/* (non-Javadoc)
+	 * @see freemind.extensions.PermanentNodeHook#saveHtml(java.io.Writer)
+	 */
+	public void saveHtml(Writer pFileout) {
 	}
 
 }

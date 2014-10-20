@@ -29,7 +29,6 @@ import javax.swing.AbstractAction;
 import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
 
-import freemind.main.Resources;
 import freemind.main.Tools;
 import freemind.modes.FreeMindFileDialog;
 import freemind.modes.MindMapNode;
@@ -110,7 +109,7 @@ public class ExportBranchAction extends AbstractAction {
 			MindMapNodeModel parent = (MindMapNodeModel) node.getParentNode();
 			// set a link from the new root to the old map
 			String linkToNewMapString = Tools.fileToRelativeUrlString(
-					chosenFile, mMindMapController.getModel().getFile());
+					mMindMapController.getModel().getFile(), chosenFile);
 			mMindMapController.setLink(node, linkToNewMapString);
 			int nodePosition = parent.getChildPosition(node);
 			mMindMapController.deleteNode(node);

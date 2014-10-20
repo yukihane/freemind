@@ -27,6 +27,7 @@ import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.Toolkit;
+import java.text.MessageFormat;
 import java.util.Set;
 import java.util.logging.Logger;
 
@@ -53,14 +54,16 @@ public class FreeMindSplashModern extends JFrame implements IFreeMindSplash {
 		private String lastTaskId = null;
 		private JLabel mImageJLabel = null;
 
-		public void progress(final int act, String messageId) {
-			final String progressString = frame.getResourceString(messageId);
-			logger.info(progressString);
+		public void progress(final int act, String messageId, Object[] pMessageParameters) {
+			MessageFormat formatter = new MessageFormat(
+					frame.getResourceString(messageId));
+			final String progressString = formatter.format(pMessageParameters);
+			logger.fine(progressString);
 			this.mActualValue = act;
 			long timeDifference = System.currentTimeMillis() - mActualTimeStamp;
 			mActualTimeStamp = System.currentTimeMillis();
 			mTotalTime += timeDifference;
-			logger.info("Task: " + lastTaskId + " (" + act + ") last "
+			logger.fine("Task: " + lastTaskId + " (" + act + ") last "
 					+ (timeDifference) / 1000.0 + " seconds.\nTotal: "
 					+ mTotalTime / 1000.0 + "\n");
 			SwingUtilities.invokeLater(new Runnable() {
@@ -77,10 +80,11 @@ public class FreeMindSplashModern extends JFrame implements IFreeMindSplash {
 					}
 				}
 			});
-			logger.info("Beginnig task:" + messageId);
+			logger.fine("Beginnig task:" + messageId);
 			lastTaskId = messageId;
-			// make it the top most window.
-			FreeMindSplashModern.this.toFront();
+			// this is not nice, as other windows are probably more important!
+//			// make it the top most window.
+//			FreeMindSplashModern.this.toFront();
 		}
 
 		public int getActualValue() {
@@ -92,8 +96,8 @@ public class FreeMindSplashModern extends JFrame implements IFreeMindSplash {
 			mProgressBar.setIndeterminate(false);
 		}
 
-		public void increase(String messageId) {
-			progress(getActualValue() + 1, messageId);
+		public void increase(String messageId, Object[] pMessageParameters) {
+			progress(getActualValue() + 1, messageId, pMessageParameters);
 		}
 
 		public void setImageJLabel(JLabel imageJLabel) {

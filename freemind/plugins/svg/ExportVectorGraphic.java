@@ -19,7 +19,7 @@
  *
  * Created on 10.11.2004
  */
-/* $Id: ExportVectorGraphic.java,v 1.1.4.3.2.11 2009/07/04 20:38:27 christianfoltin Exp $ */
+
 package plugins.svg;
 
 //import java.awt.BasicStroke;
@@ -29,6 +29,8 @@ import java.awt.Font;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.util.Iterator;
 
@@ -140,11 +142,11 @@ public class ExportVectorGraphic extends ExportHook {
 	}
 
 	public void transForm(Source xmlSource, InputStream xsltStream,
-			File resultFile, String areaCode) {
+			File resultFile, String areaCode) throws FileNotFoundException {
 		// System.out.println("set xsl");
 		Source xsltSource = new StreamSource(xsltStream);
 		// System.out.println("set result");
-		Result result = new StreamResult(resultFile);
+		Result result = new StreamResult(new FileOutputStream(resultFile));
 
 		// create an instance of TransformerFactory
 		try {

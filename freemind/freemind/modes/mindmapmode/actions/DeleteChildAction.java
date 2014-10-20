@@ -19,7 +19,7 @@
  *
  * Created on 05.05.2004
  */
-/* $Id: DeleteChildAction.java,v 1.1.2.2.2.12 2009/09/23 19:21:49 christianfoltin Exp $ */
+
 
 package freemind.modes.mindmapmode.actions;
 
@@ -110,13 +110,25 @@ public class DeleteChildAction extends AbstractAction implements ActorXml {
 		mMindMapController.fireNodePreDeleteEvent(selectedNode);
 		// deregister node:
 		mMindMapController.getModel().getLinkRegistry()
-				.deregisterLinkTarget(selectedNode);		
+				.deregisterLinkTarget(selectedNode);
+		// deselect
 		MapView view = mMindMapController.getView();
 		NodeView nodeView = view.getNodeView(selectedNode);
-		if(view.getSelecteds().size()>1) {
-			view.deselect(nodeView);
-		} else {
-			view.selectAsTheOnlyOneSelected(view.getNodeView(parent));
+		view.deselect(nodeView);
+		if(view.getSelecteds().size() == 0) {
+			NodeView newSelectedView;
+			int childIndex = parent.getChildPosition(selectedNode);
+			if(parent.getChildCount() > childIndex+1) {
+				// the next node
+				newSelectedView = view.getNodeView((MindMapNode) parent.getChildAt(childIndex+1));
+			} else if(childIndex > 0) {
+				// the node before:
+				newSelectedView = view.getNodeView((MindMapNode) parent.getChildAt(childIndex-1));
+			} else {
+				// no other node on same level. take the parent.
+				newSelectedView = view.getNodeView(parent);
+			}
+			view.selectAsTheOnlyOneSelected(newSelectedView);
 		}
 		mMindMapController.removeNodeFromParent(selectedNode);
 		// post event
@@ -153,7 +165,6 @@ public class DeleteChildAction extends AbstractAction implements ActorXml {
 
 	public void deleteNode(MindMapNode selectedNode) {
 		String newId = mMindMapController.getNodeID(selectedNode);
-		mMindMapController.getActionFactory().startTransaction(text);
 
 		Transferable copy = mMindMapController.copy(selectedNode, true);
 		NodeCoordinate coord = new NodeCoordinate(selectedNode,
@@ -164,9 +175,8 @@ public class DeleteChildAction extends AbstractAction implements ActorXml {
 				coord, (UndoPasteNodeAction) null);
 
 		DeleteNodeAction deleteAction = getDeleteNodeAction(newId);
-		mMindMapController.getActionFactory().executeAction(
+		mMindMapController.doTransaction(text,
 				new ActionPair(deleteAction, pasteNodeAction));
-		mMindMapController.getActionFactory().endTransaction(text);
 	}
 
 	public DeleteNodeAction getDeleteNodeAction(String newId) {

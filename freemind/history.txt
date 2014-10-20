@@ -1,4 +1,122 @@
 ===============================
+Changes made in FreeMind 1.0.1
+===============================
+* Fixed: Bug 1181 	Folding symbol is invisible on black background
+* Fixed persistence of "complete cloning" across cut/paste.
+* Fixed save of notes, when containing tabs
+* Clones can be deactivated by menu
+* Fixed #1178 [Shared map] Nodes are lost when moving them through drag & drop
+ 
+===============================
+Changes made in FreeMind 1.0.0 (final)
+===============================
+* QuickLook fixed
+* Fixed paste of images.
+* Fixed display of fonts (esp. font sizes) in toolbar and format dialog.
+* Fixed export to LibreOffice. (1166: Export to libreoffice)
+* Fixed windows installer for 64bit.
+* Fixed geographical search at the very first start of FreeMind
+* File filters (e.g. only show .mm-files) are activated by default
+* next try to avoid bug 1159: focus jumps to file-menu after closing html-editing-window
+* Fixed folding circles in browse mode.
+* Fixed jumping in Calendar using mouse clicks
+* Fixed: move downwards into an encrypted and closed node isn't possible any more.
+
+===============================
+Changes made in FreeMind 1.0.0 RC 5
+===============================
+* Anti-alias for folding circles fixed
+* Folding buttons can be switched off.
+* Corrected folding buttons for filtered maps (https://sourceforge.net/p/freemind/discussion/320014/). 
+* Fixed edge width for fork nodes.
+* Fixed note icon to appear after paste.
+* Fixed menu items: edge styles and widths are selected in the menu, now.
+* Only changed properties are save to the auto.properties file.
+* Fix: Quicklook for mac. Thanks for the patch!
+
+===============================
+Changes made in FreeMind 1.0.0 RC 4
+===============================
+* New: page up/down moves cursor only one page, if there are many nodes to the same parent
+* Fix for bug report 1140: Link to parent in Branch As New Map is incorrect. Thanks to Alexandre.
+* Fix: update map as changed on disk question for hidden maps fixed.
+* Fix: cancel the edit of existing nodes inside geographical maps deleted the node
+* Standard styles can be translated 
+* New: Clone types can be chosen: complete synchronization or children-only-cloning
+* Fix: #1145 freemind does not close files after export 
+* Fix: #1142 "ant dist" stoped working on linux after commit. Thanks to Alexandre
+* New: folding button for easier folding added.
+* Fix: #1146 Erroneous folding symbol created 
+
+===============================
+Changes made in FreeMind 1.0.0 RC 3
+===============================
+* Update of JMapViewer to release 2013-02-10
+* Batik 1.7 update
+* Fixed link export to HTML
+* Map locations are not exported to plain HTML, too.
+* Map locations are not exported to java script HTML, too.
+* Map locations are not exported to image HTML, too.
+* Fixed flash player: links with special characters are opened successfully: http://sourceforge.net/tracker/?func=detail&aid=3608139&group_id=7118&atid=107118
+* Map locations are not exported to flash, too.
+* New: Note window position on the right is possible. See Preferences.
+* Fix: Reminders are alerted too early: https://sourceforge.net/tracker/?func=detail&aid=3609262&group_id=7118&atid=107118
+* New: Multiple search results selection in geo maps
+* Fix: Focus after note window close corrected.
+* Fixed packaging of mac mountain lion with java7. oracle java is now included in the bundle. See http://sourceforge.net/projects/freemind/forums/forum/320014/topic/7012032
+* Tooltip times are now changeable in preferences (https://sourceforge.net/tracker/?func=detail&atid=357118&aid=3608925&group_id=7118)
+* Jortho 1.0 integrated
+* Main toolbar: width adjusted
+
+===============================
+Changes made in FreeMind 1.0.0 RC 2
+===============================
+* Fix: Font name is displayed to the current and not the last selected node.
+* Fix: Collaboration mode, see bug report https://sourceforge.net/tracker/index.php?func=detail&aid=3600130&group_id=7118&atid=107118 
+* Fix: Open of key documentation http://sourceforge.net/tracker/?func=detail&aid=3603709&group_id=7118&atid=107118
+* Fix: Too many processes if many reminders are used: http://sourceforge.net/tracker/?func=detail&aid=3601229&group_id=7118&atid=107118
+* Fix: Newline in collab mode: https://sourceforge.net/tracker/?func=detail&aid=3573105&group_id=7118&atid=107118
+* Fix: Map changed in background and close issue.
+* Added undo support for inline node editing (also fix for https://sourceforge.net/tracker/?func=detail&aid=3603909&group_id=7118&atid=107118)
+* Fix: Attributes in clones.
+* Fix: Reminders in clones.
+* Improved startup performance of maps with many clones.
+ 
+===============================
+Changes made in FreeMind 1.0.0 RC 1
+===============================
+* (Existing) Option "Search in Notes" added to Preferences Dialog (under Behaviour).
+* Searching for notes is now possible in the new search/replace dialog, too.
+* Fix: clone actions with folded clones.
+* Re-added the filter button to the browser's toolbar.
+* Fix: problem with additional newlines in HTML nodes.
+
+===============================
+Changes made in FreeMind 1.0.0 Beta9
+===============================
+* Fixed undo problem in collaboration mode
+* Fixed shutdown of clients and master.
+* Fixed export to directories with spaces under MacOSX (and probably other OS)
+* Fixed undo and creation of nodes
+* Fixed cut/copy and paste of parts of graphical links
+* Fixed cut/copy of clones
+* Clones of clones are now possible, too.
+* Fixed adding places to clone nodes (more general: to add permanent plugins to clone nodes).
+
+===============================
+Changes made in FreeMind 1.0.0 Beta8
+===============================
+* New collaboration plugin based on plain sockets written.
+  * Features:
+    * Locking support (it is not possible to change at two sites at the same time).
+    * Notifications about changes are sent to the master and then distributed to clients.
+    * Minimal security added: a password must be known to connect. But, each message (even the password) is sent open.
+    * Compression: each message over the network is compressed. 
+    * The connection parameters to the master are displayed in the title bar of each member. Thus, it is easy to invite others.
+    * The members are displayed in the title of each member as well (update interval: 5 seconds).
+* Search result table on geographical maps: control+enter places the selected line in the map.
+
+===============================
 Changes made in FreeMind 1.0.0 Beta7
 ===============================
 * Bug fix: open hyperlinks that are not local links fixed.
@@ -9,7 +127,7 @@ Changes made in FreeMind 1.0.0 Beta6
 * Geographical search results are displayed differently when selected.
 * Geographical search results are displayed as table including its distance to the cursor.
 * Geographical search can be limited to the visible map
-* http-Proxies can be used, Settings can be entered in the preferences dialog.
+* Http-Proxies can be used, settings can be entered in the preferences dialog.
 * Page format for print jobs is stored in preferences and restored on each startup.
 * NEW: viewer for maps in the browse mode/java applet.
 * Free node movement is now switched off by default and can be enabled in the preferences.
@@ -372,7 +490,7 @@ Changes made in FreeMind 0.9.0 Beta19
 * New ukranian translation. Thanks to Serhij Dubyk - dubyk.
 * Updated portugese translation. Thanks to Luis Valente - alvalente.
 * New freemind documentation in french. Thanks to rickenbroc - rickenbroc.
-* Updated french translation. Thanks to Sébastien Rombauts - srombauts.
+* Updated french translation. Thanks to Sebastien Rombauts - srombauts.
 * Updated korean translation. Thanks to Yang gyu, Lee - lyg73.
 * Updated japonese translation. Thanks to Tomohiro Sembongi - tomophy.
 * New indonesian translation. Thanks to Perry Harahap - permataharahap.

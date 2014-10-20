@@ -19,7 +19,7 @@
  *
  * Created on 28.12.2008
  */
-/* $Id: DatabaseBasics.java,v 1.1.2.4 2009/02/04 19:31:21 christianfoltin Exp $ */
+
 package plugins.collaboration.database;
 
 import java.awt.BorderLayout;
@@ -132,7 +132,7 @@ public abstract class DatabaseBasics extends MindMapNodeHookAdapter implements
 	protected static void togglePermanentHook(MindMapController controller) {
 		MindMapNode rootNode = controller.getRootNode();
 		List selecteds = Arrays.asList(new MindMapNode[] { rootNode });
-		controller.addHook(rootNode, selecteds, SLAVE_HOOK_NAME);
+		controller.addHook(rootNode, selecteds, SLAVE_HOOK_NAME, null);
 	}
 
 	protected void setPortProperty(final NumberProperty portProperty) {

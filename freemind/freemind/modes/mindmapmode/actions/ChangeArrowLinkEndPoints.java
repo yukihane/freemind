@@ -19,7 +19,7 @@
  *
  * Created on 09.01.2005
  */
-/* $Id: ChangeArrowLinkEndPoints.java,v 1.1.2.2.2.2 2006/07/25 20:28:21 christianfoltin Exp $ */
+
 package freemind.modes.mindmapmode.actions;
 
 import java.awt.Point;
@@ -51,10 +51,8 @@ public class ChangeArrowLinkEndPoints extends FreemindAction implements
 
 	public void setArrowLinkEndPoints(MindMapArrowLink link, Point startPoint,
 			Point endPoint) {
-		controller.getActionFactory().startTransaction((String) getValue(NAME));
-		controller.getActionFactory().executeAction(
+		controller.doTransaction((String) getValue(NAME),
 				getActionPair(link, startPoint, endPoint));
-		controller.getActionFactory().endTransaction((String) getValue(NAME));
 
 	}
 
@@ -78,7 +76,7 @@ public class ChangeArrowLinkEndPoints extends FreemindAction implements
 		if (action instanceof ArrowLinkPointXmlAction) {
 			ArrowLinkPointXmlAction pointAction = (ArrowLinkPointXmlAction) action;
 			MindMapArrowLink link = (MindMapArrowLink) getLinkRegistry()
-					.getLinkForID(pointAction.getId());
+					.getLinkForId(pointAction.getId());
 			link.setStartInclination(Tools.xmlToPoint(pointAction
 					.getStartPoint()));
 			link.setEndInclination(Tools.xmlToPoint(pointAction.getEndPoint()));
@@ -113,7 +111,7 @@ public class ChangeArrowLinkEndPoints extends FreemindAction implements
 		ArrowLinkPointXmlAction action = new ArrowLinkPointXmlAction();
 		action.setStartPoint(Tools.PointToXml(startPoint));
 		action.setEndPoint(Tools.PointToXml(endPoint));
-		action.setId(arrowLink.getUniqueID());
+		action.setId(arrowLink.getUniqueId());
 		return action;
 	}
 

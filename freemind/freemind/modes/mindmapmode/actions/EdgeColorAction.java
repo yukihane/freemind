@@ -20,7 +20,7 @@
  * 
  * Created on 25.08.2004
  */
-/* $Id: EdgeColorAction.java,v 1.1.2.2 2006/02/15 21:18:45 christianfoltin Exp $ */
+
 package freemind.modes.mindmapmode.actions;
 
 import java.awt.Color;
@@ -69,11 +69,8 @@ public class EdgeColorAction extends AbstractAction implements ActorXml {
 				color);
 		EdgeColorFormatAction undoAction = createEdgeColorFormatAction(node,
 				((EdgeAdapter) node.getEdge()).getRealColor());
-		controller.getActionFactory().startTransaction(
-				this.getClass().getName());
-		controller.getActionFactory().executeAction(
+		controller.doTransaction(this.getClass().getName(),
 				new ActionPair(doAction, undoAction));
-		controller.getActionFactory().endTransaction(this.getClass().getName());
 
 	}
 

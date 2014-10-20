@@ -20,7 +20,7 @@
  * 
  * Created on 19.09.2004
  */
-/* $Id: CloudColorAction.java,v 1.1.2.2 2006/02/15 21:18:45 christianfoltin Exp $ */
+
 
 package freemind.modes.mindmapmode.actions;
 
@@ -75,11 +75,8 @@ public class CloudColorAction extends FreemindAction implements ActorXml,
 		CloudColorXmlAction doAction = createCloudColorXmlAction(node, color);
 		CloudColorXmlAction undoAction = createCloudColorXmlAction(node,
 				(node.getCloud() == null) ? null : node.getCloud().getColor());
-		controller.getActionFactory().startTransaction(
-				this.getClass().getName());
-		controller.getActionFactory().executeAction(
+		controller.doTransaction(this.getClass().getName(),
 				new ActionPair(doAction, undoAction));
-		controller.getActionFactory().endTransaction(this.getClass().getName());
 	}
 
 	public CloudColorXmlAction createCloudColorXmlAction(MindMapNode node,

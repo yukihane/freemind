@@ -25,6 +25,7 @@ package plugins.map;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Cursor;
+import java.awt.EventQueue;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.datatransfer.StringSelection;
@@ -43,16 +44,16 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLEncoder;
 import java.text.MessageFormat;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map.Entry;
 import java.util.Vector;
 
 import javax.imageio.ImageIO;
@@ -78,11 +79,14 @@ import org.openstreetmap.gui.jmapviewer.interfaces.TileSource;
 import org.openstreetmap.gui.jmapviewer.tilesources.AbstractOsmTileSource;
 import org.openstreetmap.gui.jmapviewer.tilesources.OsmTileSource;
 
+import freemind.common.FreeMindTask;
 import freemind.common.XmlBindingTools;
 import freemind.controller.MenuItemEnabledListener;
 import freemind.controller.MenuItemSelectedListener;
 import freemind.controller.StructuredMenuHolder;
 import freemind.controller.actions.generated.instance.Place;
+import freemind.controller.actions.generated.instance.Result;
+import freemind.controller.actions.generated.instance.Reversegeocode;
 import freemind.controller.actions.generated.instance.Searchresults;
 import freemind.extensions.ExportHook;
 import freemind.main.Resources;
@@ -135,6 +139,10 @@ public class FreeMindMapController extends JMapController implements
 
 	private static final String NODE_MAP_HOME_PROPERTY = "node_map_home";
 
+	private static final String MAP_DIALOG_PROGRESS_MESSAGE = "MapDialog.progressMessage";
+
+	private static final String MAP_DIALOG_ADD_PLACES = "MapDialog.addPlaces";
+
 	private static final String XML_VERSION_1_0_ENCODING_UTF_8 = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
 
 	private static final int MOUSE_BUTTONS_MASK = MouseEvent.BUTTON3_DOWN_MASK
@@ -156,7 +164,7 @@ public class FreeMindMapController extends JMapController implements
 
 	private static final float PAGE_DOWN_FACTOR = 0.85f;
 
-	private static final int POSITION_HOLDER_LIMIT = 1000;
+	private static final int POSITION_HOLDER_LIMIT = 50;
 
 	private static final long WHEEL_ZOOM_MINIMAL_TIME_BETWEEN_CHANGES = 333;
 
@@ -275,7 +283,7 @@ public class FreeMindMapController extends JMapController implements
 		}
 	}
 
-	private static TileSourceStore[] mTileSources = new TileSourceStore[] {
+	private static TileSourceStore[] sTileSources = new TileSourceStore[] {
 			new TileSourceStore(new OsmTileSource.Mapnik(),
 					MapNodePositionHolderBase.SHORT_MAPNIK),
 			new TileSourceStore(new OsmTileSource.CycleMap(),
@@ -292,19 +300,25 @@ public class FreeMindMapController extends JMapController implements
 		private final NodeView mNodeView;
 		private final MindMapNode mNewNode;
 		private final MindMapNode mTargetNode;
+		private boolean mIsEditOfExistingNode;
 
 		private MapEditTextFieldControl(NodeView pNodeView,
-				MindMapNode pNewNode, MindMapNode pTargetNode) {
+				MindMapNode pNewNode, MindMapNode pTargetNode, boolean pIsEditOfExistingNode) {
 			mNodeView = pNodeView;
 			mNewNode = pNewNode;
 			mTargetNode = pTargetNode;
+			mIsEditOfExistingNode = pIsEditOfExistingNode;
 		}
 
 		public void cancel() {
-			mMindMapController.getView().selectAsTheOnlyOneSelected(mNodeView);
-			mMindMapController.cut(Tools.getVectorWithSingleElement(mNewNode));
-			mMindMapController.select(mMindMapController
-					.getNodeView(mTargetNode));
+			if (!mIsEditOfExistingNode) {
+				mMindMapController.getView().selectAsTheOnlyOneSelected(
+						mNodeView);
+				mMindMapController.cut(Tools
+						.getVectorWithSingleElement(mNewNode));
+				mMindMapController.select(mMindMapController
+						.getNodeView(mTargetNode));
+			}
 			endEdit();
 		}
 
@@ -317,7 +331,7 @@ public class FreeMindMapController extends JMapController implements
 		private void endEdit() {
 			setMouseControl(true);
 			mMindMapController.setBlocked(false);
-			map.requestFocus();
+			mMapDialog.requestFocus();
 		}
 
 		public void split(String newText, int position) {
@@ -925,6 +939,29 @@ public class FreeMindMapController extends JMapController implements
 
 	}
 
+	private final class NewNodeReverseLookupAction extends AbstractAction {
+
+		public NewNodeReverseLookupAction() {
+			super(
+					getText("MapControllerPopupDialog.NewNodeReverseLookupAction"));
+		}
+
+		public void actionPerformed(ActionEvent pE) {
+			Coordinate pos = getMap().getCursorPosition();
+			Reversegeocode reverseLookup = getReverseLookup(pos, getMap()
+					.getZoom());
+			if (reverseLookup != null) {
+				for (Iterator it = reverseLookup.getListResultList().iterator(); it
+						.hasNext();) {
+					Result result = (Result) it.next();
+					addNode(mMindMapController.getSelected(),
+							result.getContent(), result.getLat(), result.getLon());
+				}
+			}
+		}
+
+	}
+
 	private final class EditNodeInContextMenu extends AbstractAction {
 
 		public EditNodeInContextMenu() {
@@ -955,6 +992,8 @@ public class FreeMindMapController extends JMapController implements
 
 	private final class MaxmimalZoomToCursorAction extends AbstractAction {
 
+		private static final int CURSOR_MAXIMAL_ZOOM_HANDBREAK = 2;
+
 		public MaxmimalZoomToCursorAction() {
 			super(
 					getText("MapControllerPopupDialog.MaxmimalZoomToCursorAction"));
@@ -962,7 +1001,10 @@ public class FreeMindMapController extends JMapController implements
 
 		public void actionPerformed(ActionEvent pE) {
 			Coordinate cursorPosition = getMap().getCursorPosition();
-			int zoom = getMaxZoom() - 2;
+			int zoom = getMaxZoom() - CURSOR_MAXIMAL_ZOOM_HANDBREAK;
+			if (getMap().getZoom() >= zoom) {
+				zoom += CURSOR_MAXIMAL_ZOOM_HANDBREAK;
+			}
 			map.setDisplayPositionByLatLon(cursorPosition.getLat(),
 					cursorPosition.getLon(), zoom);
 		}
@@ -1194,6 +1236,7 @@ public class FreeMindMapController extends JMapController implements
 		Action gotoSearch = new GotoSearch();
 		Action hideFoldedNodes = new HideFoldedNodes();
 		Action newNodeAction = new NewNodeAction();
+//		Action newNodeReverseLookupAction = new NewNodeReverseLookupAction();
 		Action maxmimalZoomToCursorAction = new MaxmimalZoomToCursorAction();
 		Action copyLinkToClipboardAction = new CopyLinkToClipboardAction();
 		Action copyCoordinatesToClipboardAction = new CopyCoordinatesToClipboardAction();
@@ -1226,8 +1269,8 @@ public class FreeMindMapController extends JMapController implements
 		menuHolder.addAction(setDisplayToFitMapMarkers,
 				"main/view/setDisplayToFitMapMarkers");
 		menuHolder.addSeparator("main/view/");
-		for (int i = 0; i < mTileSources.length; i++) {
-			TileSource source = mTileSources[i].mTileSource;
+		for (int i = 0; i < sTileSources.length; i++) {
+			TileSource source = sTileSources[i].mTileSource;
 			addAccelerator(menuHolder.addAction(new ChangeTileSource(source),
 					"main/view/" + i),
 					"keystroke_plugins/map/MapDialog_tileSource_" + i);
@@ -1286,6 +1329,10 @@ public class FreeMindMapController extends JMapController implements
 		mMapDialog.setJMenuBar(mMenuBar);
 		/* Popup menu */
 		menuHolder.addAction(newNodeAction, "popup/newNode");
+		// currently disabled, as the reverse functionality from
+		// nominatim doesn't convince me.
+//		menuHolder.addAction(newNodeReverseLookupAction,
+//				"popup/newNodeReverseLookup");
 		menuHolder.addAction(placeAction, "popup/place");
 		menuHolder.addSeparator("popup/");
 		menuHolder.addAction(maxmimalZoomToCursorAction,
@@ -1323,6 +1370,7 @@ public class FreeMindMapController extends JMapController implements
 		menuHolder.updateMenus(getSearchPopupMenu(), "searchPopup/");
 
 		mMapDialog.addKeyListener(this);
+//		Tools.addFocusPrintTimer();
 	}
 
 	public void addAccelerator(JMenuItem menuItem, String key) {
@@ -1337,6 +1385,14 @@ public class FreeMindMapController extends JMapController implements
 	 * @return
 	 */
 	protected MapNodePositionHolderBase placeNode(MindMapNode pSelected) {
+		Coordinate cursorPosition = getMap().getCursorPosition();
+		Coordinate position = map.getPosition();
+		int zoom = map.getZoom();
+		return placeNodeAt(pSelected, cursorPosition, position, zoom);
+	}
+
+	protected MapNodePositionHolderBase placeNodeAt(MindMapNode pSelected,
+			Coordinate cursorPosition, Coordinate position, int zoom) {
 		MapNodePositionHolder hook = MapNodePositionHolder.getHook(pSelected);
 		if (hook == null) {
 			hook = addHookToNode(pSelected);
@@ -1344,8 +1400,7 @@ public class FreeMindMapController extends JMapController implements
 		if (hook != null) {
 			// set parameters:
 			String tileSource = getTileSourceAsString();
-			hook.changePosition(getMap().getCursorPosition(),
-					map.getPosition(), map.getZoom(), tileSource);
+			hook.changePosition(cursorPosition, position, zoom, tileSource);
 		} else {
 			logger.warning("Hook not found although it was recently added. Node was "
 					+ pSelected);
@@ -1495,7 +1550,7 @@ public class FreeMindMapController extends JMapController implements
 	 */
 	public static TileSource changeTileSource(String pTileSource,
 			JMapViewer pMap) {
-		logger.info("Searching for tile source " + pTileSource);
+		logger.fine("Searching for tile source " + pTileSource);
 		TileSourceStore tileSource = getTileSourceByName(pTileSource);
 		if (tileSource != null && pMap != null) {
 			pMap.setTileSource(tileSource.mTileSource);
@@ -1505,8 +1560,8 @@ public class FreeMindMapController extends JMapController implements
 	}
 
 	public static TileSourceStore getTileSourceByName(String sourceName) {
-		for (int i = 0; i < mTileSources.length; i++) {
-			TileSourceStore source = mTileSources[i];
+		for (int i = 0; i < sTileSources.length; i++) {
+			TileSourceStore source = sTileSources[i];
 			if (Tools.safeEquals(getTileSourceName(source.mTileSource),
 					sourceName)) {
 				logger.fine("Found  tile source " + source);
@@ -1522,9 +1577,9 @@ public class FreeMindMapController extends JMapController implements
 
 	public MapNodePositionHolder addHookToNode(MindMapNode selected) {
 		MapNodePositionHolder hook;
-		List selecteds = Arrays.asList(new MindMapNode[] { selected });
+		List selecteds = Tools.getVectorWithSingleElement(selected);
 		mMindMapController.addHook(selected, selecteds,
-				MapNodePositionHolderBase.NODE_MAP_HOOK_NAME);
+				MapNodePositionHolderBase.NODE_MAP_HOOK_NAME, null);
 		hook = MapNodePositionHolder.getHook(selected);
 		return hook;
 	}
@@ -1616,6 +1671,23 @@ public class FreeMindMapController extends JMapController implements
 	 */
 	private void newNode(MouseEvent pEvent) {
 		final MindMapNode targetNode = mMindMapController.getSelected();
+		final MindMapNode newNode = insertNewNode(targetNode);
+		final NodeView nodeView = mMindMapController.getNodeView(newNode);
+		mMindMapController.select(nodeView);
+		// inline editing:
+		mMindMapController.setBlocked(true);
+		setMouseControl(false);
+		Point point = pEvent.getPoint();
+		Tools.convertPointToAncestor((Component) pEvent.getSource(), point, map);
+		storeMapPosition(getMap().getCursorPosition());
+		MapEditTextFieldControl editControl = new MapEditTextFieldControl(
+				nodeView, newNode, targetNode, false);
+		EditNodeTextField textfield = new MapEditNoteTextField(nodeView, "",
+				null, mMindMapController, editControl, map, point);
+		textfield.show();
+	}
+
+	public MindMapNode insertNewNode(final MindMapNode targetNode) {
 		int childPosition;
 		MindMapNode parent;
 		if (targetNode.isRoot()) {
@@ -1629,19 +1701,7 @@ public class FreeMindMapController extends JMapController implements
 		}
 		final MindMapNode newNode = mMindMapController.addNewNode(parent,
 				childPosition, targetNode.isLeft());
-		final NodeView nodeView = mMindMapController.getNodeView(newNode);
-		mMindMapController.select(nodeView);
-		// inline editing:
-		mMindMapController.setBlocked(true);
-		setMouseControl(false);
-		Point point = pEvent.getPoint();
-		Tools.convertPointToAncestor((Component) pEvent.getSource(), point, map);
-		storeMapPosition(getMap().getCursorPosition());
-		MapEditTextFieldControl editControl = new MapEditTextFieldControl(
-				nodeView, newNode, targetNode);
-		EditNodeTextField textfield = new MapEditNoteTextField(nodeView, "",
-				null, mMindMapController, editControl, map, point);
-		textfield.show();
+		return newNode;
 	}
 
 	/**
@@ -1663,7 +1723,7 @@ public class FreeMindMapController extends JMapController implements
 		Point point = pEvent.getPoint();
 		Tools.convertPointToAncestor((Component) pEvent.getSource(), point, map);
 		MapEditTextFieldControl editControl = new MapEditTextFieldControl(
-				nodeView, editNode, editNode);
+				nodeView, editNode, editNode, true);
 		EditNodeTextField textfield = new MapEditNoteTextField(nodeView,
 				editNode.getText(), null, mMindMapController, editControl, map,
 				point);
@@ -1689,7 +1749,7 @@ public class FreeMindMapController extends JMapController implements
 				// rectangular select:
 				mIsRectangularSelect = true;
 				mRectangularStart = getCoordinateFromMouseEvent(e);
-				logger.info("Starting rect on " + mRectangularStart);
+				logger.fine("Starting rect on " + mRectangularStart);
 				return;
 			}
 			// detect collision with map marker:
@@ -1919,7 +1979,7 @@ public class FreeMindMapController extends JMapController implements
 		while (getPositionHolderIndex() < positionHolderVector.size() - 1) {
 			positionHolderVector.remove(positionHolderVector.size() - 1);
 		}
-		logger.info("Storing position " + holder + " at index "
+		logger.fine("Storing position " + holder + " at index "
 				+ getPositionHolderIndex());
 		positionHolderVector.insertElementAt(holder,
 				getPositionHolderIndex() + 1);
@@ -1927,7 +1987,7 @@ public class FreeMindMapController extends JMapController implements
 		// assure that max size is below limit.
 		while (positionHolderVector.size() >= POSITION_HOLDER_LIMIT
 				&& getPositionHolderIndex() > 0) {
-			setPositionHolderIndex(getPositionHolderIndex() - 1);
+			setPositionHolderIndex(Math.max(getPositionHolderIndex() - 1, 0));
 			positionHolderVector.remove(0);
 		}
 		// update actions
@@ -2125,6 +2185,27 @@ public class FreeMindMapController extends JMapController implements
 		return returnValue;
 	}
 
+	public Reversegeocode getReverseLookup(Coordinate pCoordinate, int pZoom) {
+		StringBuilder b = new StringBuilder();
+		b.append("http://nominatim.openstreetmap.org/reverse?format=xml&email=christianfoltin%40users.sourceforge.net&addressdetails=0"); //$NON-NLS-1$
+		b.append("&accept-language=").append(Locale.getDefault().getLanguage()); //$NON-NLS-1$
+		b.append("&lat=");
+		b.append(pCoordinate.getLat());
+		b.append("&lon=");
+		b.append(pCoordinate.getLon());
+		b.append("&zoom=");
+		b.append(pZoom);
+		try {
+			String result = wget(b);
+			Reversegeocode reversegeocode = (Reversegeocode) XmlBindingTools
+					.getInstance().unMarshall(result);
+			return reversegeocode;
+		} catch (Exception e) {
+			freemind.main.Resources.getInstance().logException(e);
+		}
+		return null;
+	}
+
 	/**
 	 * @param pText
 	 * @return
@@ -2146,31 +2227,14 @@ public class FreeMindMapController extends JMapController implements
 					b.append("&viewbox=");
 					b.append(topLeftCorner.getLon());
 					b.append(",");
-					b.append(bottomRightCorner.getLat());
+					b.append(topLeftCorner.getLat());
 					b.append(",");
 					b.append(bottomRightCorner.getLon());
 					b.append(",");
-					b.append(topLeftCorner.getLat());
+					b.append(bottomRightCorner.getLat());
 					b.append("&bounded=1");
 				}
-				logger.fine("Searching for " + b.toString());
-				URL url = new URL(b.toString());
-				URLConnection urlConnection = url.openConnection();
-				if (Tools.isAboveJava4()) {
-					urlConnection
-							.setConnectTimeout(Resources
-									.getInstance()
-									.getIntProperty(
-											OSM_NOMINATIM_CONNECT_TIMEOUT_IN_MS,
-											10000));
-					urlConnection.setReadTimeout(Resources.getInstance()
-							.getIntProperty(OSM_NOMINATIM_READ_TIMEOUT_IN_MS,
-									30000));
-				}
-				InputStream urlStream = urlConnection.getInputStream();
-				result = Tools.getFile(new InputStreamReader(urlStream));
-				result = new String(result.getBytes(), "UTF-8");
-				logger.fine(result + " was received for search " + pText);
+				result = wget(b);
 			} else {
 				// only for offline testing:
 				result = XML_VERSION_1_0_ENCODING_UTF_8
@@ -2316,13 +2380,46 @@ public class FreeMindMapController extends JMapController implements
 			logger.warning("Result was " + result);
 			results.addPlace(getErrorPlace(errorString, "ERROR"));
 		}
-		if (limitSearchToRegion && results.getListPlaceList().isEmpty()) {
-			results.addPlace(getErrorPlace(
-					mMindMapController
-							.getText("plugins.map.FreeMindMapController.LimitedSearchWithoutResult"),
-					"WARNING"));
+		if (results.getListPlaceList().isEmpty()) {
+			String textId;
+			if (limitSearchToRegion) {
+				textId = "plugins.map.FreeMindMapController.LimitedSearchWithoutResult";
+			} else {
+				textId = "plugins.map.FreeMindMapController.SearchWithoutResult";
+			}
+			Object[] messageArguments = { pText };
+			MessageFormat formatter = new MessageFormat(
+					mMindMapController.getText(textId));
+			String message = formatter.format(messageArguments);
+			results.addPlace(getErrorPlace(message, "WARNING"));
 		}
 		return results;
+	}
+
+	public String wget(StringBuilder b) throws MalformedURLException,
+			IOException, UnsupportedEncodingException {
+		String result;
+		mMindMapController.getFrame().setWaitingCursor(true);
+		try {
+			logger.fine("Searching for " + b.toString());
+			URL url = new URL(b.toString());
+			URLConnection urlConnection = url.openConnection();
+			if (Tools.isAboveJava4()) {
+				urlConnection.setConnectTimeout(Resources.getInstance()
+						.getIntProperty(OSM_NOMINATIM_CONNECT_TIMEOUT_IN_MS,
+								10000));
+				urlConnection
+						.setReadTimeout(Resources.getInstance().getIntProperty(
+								OSM_NOMINATIM_READ_TIMEOUT_IN_MS, 30000));
+			}
+			InputStream urlStream = urlConnection.getInputStream();
+			result = Tools.getFile(new InputStreamReader(urlStream));
+			result = new String(result.getBytes(), "UTF-8");
+			logger.fine(result + " was received for search " + b);
+		} finally {
+			mMindMapController.getFrame().setWaitingCursor(false);
+		}
+		return result;
 	}
 
 	protected Place getErrorPlace(final String errorString, String errorLevel) {
@@ -2344,7 +2441,7 @@ public class FreeMindMapController extends JMapController implements
 	}
 
 	public static TileSourceStore[] getmTileSources() {
-		return mTileSources;
+		return sTileSources;
 	}
 
 	/*
@@ -2377,8 +2474,7 @@ public class FreeMindMapController extends JMapController implements
 				new Double(coordinate.getLat()),
 				new Double(coordinate.getLon()) };
 		MessageFormat formatter = new MessageFormat(
-				mMindMapController
-						.getText("plugins/map/MapDialog_Distance"));
+				mMindMapController.getText("plugins/map/MapDialog_Distance"));
 		String message = formatter.format(messageArguments);
 		statusText += message;
 		mMapHook.getStatusLabel().setText(statusText);
@@ -2401,7 +2497,7 @@ public class FreeMindMapController extends JMapController implements
 		return getLink(tileSource, position, mapCenter, zoom);
 	}
 
-	protected static String getLink(String tileSource, Coordinate position,
+	public static String getLink(String tileSource, Coordinate position,
 			Coordinate mapCenter, int zoom) {
 		String layer = "M";
 		TileSourceStore tileSourceByName = FreeMindMapController
@@ -2506,6 +2602,69 @@ public class FreeMindMapController extends JMapController implements
 	 */
 	public void addCursorPositionListener(CursorPositionListener pListener) {
 		mCursorPositionListeners.add(pListener);
+	}
+
+	/**
+	 * @param pSelected
+	 * @param pPlace
+	 */
+	public void addNode(MindMapNode pSelected, Place pPlace) {
+		addNode(pSelected, pPlace.getDisplayName(), pPlace.getLat(),
+				pPlace.getLon());
+	}
+
+	public void addNode(MindMapNode pSelected, String pText, double lat,
+			double lon) {
+		final MindMapNode targetNode = pSelected;
+		final MindMapNode newNode = insertNewNode(targetNode);
+		mMindMapController.setNodeText(newNode, pText);
+		placeNodeAt(newNode, new Coordinate(lat, lon), map.getPosition(),
+				map.getZoom());
+	}
+
+	private class AddSearchResultsToMapTask extends FreeMindTask {
+
+		private Place[] mPlaces;
+
+		public AddSearchResultsToMapTask(int[] pSelectedRows) {
+			super(mMapDialog, pSelectedRows.length, MAP_DIALOG_PROGRESS_MESSAGE);
+			// deep copy
+			mPlaces = new Place[pSelectedRows.length];
+			for (int i = 0; i < pSelectedRows.length; i++) {
+				mPlaces[i] = mMapHook.getPlace(pSelectedRows[i]);
+			}
+		}
+
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see freemind.common.FreeMindTask#processAction()
+		 */
+		protected boolean processAction() throws Exception {
+			int selIndex = getRounds();
+			final Place place = mPlaces[selIndex];
+			mProgressDescription = new ProgressDescription(
+					MAP_DIALOG_ADD_PLACES,
+					new Object[] { place.getDisplayName() });
+			final MindMapNode selected = getMindMapController().getSelected();
+			EventQueue.invokeAndWait(new Runnable() {
+				public void run() {
+					addNode(selected, place);
+				}
+			});
+			return true;
+		}
+
+	}
+
+	public void addSearchResultsToMap(int[] pSelectedRows) {
+		AddSearchResultsToMapTask task = new AddSearchResultsToMapTask(
+				pSelectedRows);
+		task.start();
+	}
+
+	private ModeController getMindMapController() {
+		return mMindMapController;
 	}
 
 }

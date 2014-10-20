@@ -17,7 +17,7 @@
  *Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  * Created on 05.05.2004
  */
-/* $Id: MindMapActions.java,v 1.1.2.3.2.10 2008/07/26 12:01:33 dpolivaev Exp $ */
+
 package freemind.modes.mindmapmode.actions;
 
 import java.awt.Color;
@@ -26,6 +26,7 @@ import java.awt.datatransfer.Transferable;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseWheelEvent;
 import java.util.List;
+import java.util.Properties;
 
 import freemind.controller.actions.generated.instance.Pattern;
 import freemind.controller.actions.generated.instance.XmlAction;
@@ -209,6 +210,9 @@ public interface MindMapActions {
 	public void paste(Transferable t, MindMapNode parent);
 
 	/**
+	 * @param t the content to be pasted
+	 * @param target destination node
+	 * @param asSibling true: the past will be a direct sibling of target, otherwise it will become a child
 	 * @param isLeft
 	 *            determines, whether or not the node is placed on the left or
 	 *            right.
@@ -220,7 +224,7 @@ public interface MindMapActions {
 	public void paste(MindMapNode node, MindMapNode parent);
 
 	// hooks, fc 28.2.2004:
-	public void addHook(MindMapNode focussed, List selecteds, String hookName);
+	public void addHook(MindMapNode focussed, List selecteds, String hookName, Properties pHookProperties);
 
 	public void removeHook(MindMapNode focussed, List selecteds, String hookName);
 

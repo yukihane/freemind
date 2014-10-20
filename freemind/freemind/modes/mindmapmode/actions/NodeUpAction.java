@@ -19,7 +19,6 @@
  *
  * Created on 21.08.2004
  */
-/* $Id: NodeUpAction.java,v 1.1.2.2.2.4 2009/05/16 20:26:13 christianfoltin Exp $ */
 
 package freemind.modes.mindmapmode.actions;
 
@@ -42,8 +41,6 @@ import freemind.modes.MindMapNode;
 import freemind.modes.mindmapmode.MindMapController;
 import freemind.modes.mindmapmode.actions.xml.ActionPair;
 import freemind.modes.mindmapmode.actions.xml.ActorXml;
-import freemind.view.mindmapview.MapView;
-import freemind.view.mindmapview.NodeView;
 
 public class NodeUpAction extends AbstractAction implements ActorXml {
 	private final MindMapController modeController;
@@ -61,8 +58,10 @@ public class NodeUpAction extends AbstractAction implements ActorXml {
 	}
 
 	public void actionPerformed(ActionEvent e) {
-		moveNodes(modeController.getSelected(), modeController.getSelecteds(),
-				-1);
+		MindMapNode selected = modeController.getSelected();
+		List selecteds = modeController.getSelecteds();
+		moveNodes(selected, selecteds, -1);
+		modeController.select(selected, selecteds);
 	}
 
 	/**
@@ -72,12 +71,8 @@ public class NodeUpAction extends AbstractAction implements ActorXml {
 				direction);
 		MoveNodesAction undoAction = createMoveNodesAction(selected, selecteds,
 				-direction);
-		modeController.getActionFactory().startTransaction(
-				(String) getValue(NAME));
-		modeController.getActionFactory().executeAction(
-				new ActionPair(doAction, undoAction));
-		modeController.getActionFactory().endTransaction(
-				(String) getValue(NAME));
+		modeController.doTransaction((String) getValue(NAME), new ActionPair(
+				doAction, undoAction));
 	}
 
 	public void _moveNodes(MindMapNode selected, List selecteds, int direction) {
@@ -121,20 +116,6 @@ public class NodeUpAction extends AbstractAction implements ActorXml {
 						.intValue());
 				moveNodeTo(node, parent, direction);
 			}
-			final MapView mapView = modeController.getView();
-			final NodeView selectedNodeView = mapView.getNodeView(selected);
-			mapView.selectAsTheOnlyOneSelected(selectedNodeView);
-			mapView.scrollNodeToVisible(selectedNodeView);
-			for (Iterator i = range.iterator(); i.hasNext();) {
-				Integer position = (Integer) i.next();
-				// from above:
-				MindMapNode node = (MindMapNode) sortedChildren.get(position
-						.intValue());
-				final NodeView nodeView = mapView.getNodeView(node);
-				mapView.makeTheSelected(nodeView);
-			}
-			// focus fix
-			modeController.getController().obtainFocusForSelected(); 
 		}
 	}
 
@@ -163,8 +144,8 @@ public class NodeUpAction extends AbstractAction implements ActorXml {
 		MindMapNode destinationNode = (MindMapNode) sortedNodesIndices
 				.get(newPositionInVector);
 		newIndex = model.getIndexOfChild(parent, destinationNode);
-		model.removeNodeFromParent(newChild);
-		model.insertNodeInto(newChild, parent, newIndex);
+		modeController.removeNodeFromParent(newChild);
+		modeController.insertNodeInto(newChild, parent, newIndex);
 		modeController.nodeChanged(newChild);
 		return newIndex;
 	}

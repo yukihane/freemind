@@ -16,7 +16,7 @@
  *along with this program; if not, write to the Free Software
  *Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
-/* $Id: MapAdapter.java,v 1.24.14.10.2.29 2010/01/25 20:17:59 christianfoltin Exp $ */
+
 
 package freemind.modes;
 
@@ -99,15 +99,15 @@ public abstract class MapAdapter extends DefaultTreeModel implements MindMap {
 				lastModified = getFileTime();
 				if (lastModified > mFileTime) {
 					shouldFire = true;
-					mFileTime = lastModified;
+					// don't change the file time here. Only, after the user has been asked.
 				}
 			}
 			if (shouldFire) {
-				logger.info("File " + getFile()
-						+ " changed on disk as it was last modified at "
-						+ new Date(lastModified));
 				for (Iterator it = mMapSourceChangedObserverSet.iterator(); it
 						.hasNext();) {
+					logger.info("File " + getFile()
+							+ " changed on disk as it was last modified at "
+							+ new Date(lastModified));
 					MapSourceChangedObserver observer = (MapSourceChangedObserver) it
 							.next();
 					try {
@@ -115,6 +115,8 @@ public abstract class MapAdapter extends DefaultTreeModel implements MindMap {
 						if(!changeAccepted) {
 							// this is a trick: at the next save/load the correct value is set again. 
 							mFileTime = Long.MAX_VALUE;
+						} else {
+							mFileTime = lastModified;
 						}
 					} catch (Exception e) {
 						freemind.main.Resources.getInstance().logException(e);

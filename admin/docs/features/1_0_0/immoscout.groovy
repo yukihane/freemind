@@ -54,7 +54,9 @@ urlMap.keySet().each { link ->
 	if(! link.startsWith(IMMO) )
 		return;
 	removedNode = urlMap[link];
-	changeIcon(removedNode, freemind.modes.MindIcon.factory("button_cancel"));
+	if(removedNode.getIcons().size()>0)
+		c.removeLastIcon(removedNode);
+	c.addIcon(removedNode,freemind.modes.MindIcon.factory("button_cancel"));
 	println "Removed from page T: " + removedNode;
 }
 
@@ -73,7 +75,6 @@ def getUrl(HashMap urlMap, String urlT, String IMMO) {
 		def additionalDataPattern2 = ~/^<li>(.*)<\/li>$/;
 		def additionalDataPattern3 = ~/.*<span class="address is24-hide">(.*)<\/span>.*/;
 		def currentNode = null;
-		def newNode = false;
 		def price = 0;
 		def qmeters = 1;
 		while ((str = inp.readLine()) != null) {
@@ -81,7 +82,6 @@ def getUrl(HashMap urlMap, String urlT, String IMMO) {
 			def matcher = pattern.matcher(str);
 			if(matcher.matches() && ! noExposeLinkPattern.matcher(str).matches()) {
 				currentNode = null;
-				newNode = false;
 				price = 0;
 				qmeters = 1;
 				def link = IMMO + matcher[0][1];
@@ -96,11 +96,24 @@ def getUrl(HashMap urlMap, String urlT, String IMMO) {
 					if(weeksOld > 9) {
 						weeksOld = 9;
 					}
-					def newIcon = freemind.modes.MindIcon.factory("full-" + (weeksOld as int));
-					changeIcon(cnode, newIcon);
+					// remove all icons up to the date icon:
+					def list = []
+					while(cnode.getIcons().size()>0) {
+						def currIcon = cnode.getIcons().lastElement()
+						c.removeLastIcon(cnode);
+						if(currIcon.getName().contains("full-")){
+							// last, if icon found
+							break;
+						}
+						list.add(0,currIcon)
+						println "Removing " + currIcon
+					}
+					c.addIcon(cnode,freemind.modes.MindIcon.factory("full-" + (weeksOld as int)));
+					for(otherIcon in list){
+						c.addIcon(cnode, otherIcon);
+						println "Readding " + otherIcon
+					}
 					urlMap.remove(link);
-					currentNode = cnode;
-					newNode = false;
 				} else {
 					// new node
 					println "New: L: " + link + ", T: " + title;
@@ -109,42 +122,28 @@ def getUrl(HashMap urlMap, String urlT, String IMMO) {
 					c.setLink(nn, link);
 					c.addIcon(nn,freemind.modes.MindIcon.factory("full-0"));
 					currentNode = nn;
-					newNode = true;
 				}
 			}
 			// some additional data like size and price are added as subnodes to the node
-			def data = addData(currentNode, additionalDataPattern.matcher(str), newNode);
-			addData(currentNode, additionalDataPattern2.matcher(str), newNode);
-			addData(currentNode, additionalDataPattern3.matcher(str), newNode);
+			def data = addData(currentNode, additionalDataPattern.matcher(str));
+			addData(currentNode, additionalDataPattern2.matcher(str));
+			addData(currentNode, additionalDataPattern3.matcher(str));
 			
-
-			if(newNode){
-				def matcherData = (~/.*Kaufpreis: ([0-9.]+) EUR.*/).matcher(data);
-				if(matcherData.matches()){
-					price = matcherData[0][1].replaceAll("\\.","").replaceAll(",",".");
-					println "Price " + price;
-				}
-				def matcherData3 = (~/.*Kaltmiete: ([0-9.]+) EUR.*/).matcher(data);
-				if(matcherData3.matches()){
-					price = matcherData3[0][1].replaceAll("\\.","").replaceAll(",",".");
-					println "Price " + price;
-				}
-				def matcherData2 = (~/.*Wohnfl&auml;che: ([0-9.,]+) m.*/).matcher(data);
-				if(matcherData2.matches()){
-					qmeters = matcherData2[0][1].replaceAll("\\.","").replaceAll(",",".");
-					println "qm " + qmeters;
-					if(qmeters as double != 0.0) {
-						def qprice = (price as double) /(qmeters as double);
-						if(qprice > 100.0){
-							qprice = (qprice as int);
-						} else {
-							qprice = (qprice * 100.0 as int) / 100.0;
-						}    
-						def nn = c.addNewNode(currentNode, currentNode.getChildCount(), false);
-						c.setNodeText(nn,"" + (qprice) + " EUR/qm");
-					}				
-				}
-			}				
+			def matcherData = (~/.*Kaufpreis: ([0-9.]+) EUR.*/).matcher(data);
+			if(matcherData.matches()){
+				price = matcherData[0][1];
+				println "Price " + price;
+			}
+			def matcherData2 = (~/.*Wohnfl.che: ([0-9.]+) m.*/).matcher(data);
+			if(matcherData2.matches()){
+				qmeters = matcherData2[0][1];
+				println "qm " + qmeters;
+				if(qmeters as double != 0.0) {
+					def nn = c.addNewNode(currentNode, currentNode.getChildCount(), false);
+					c.setNodeText(nn,"" + (((price as double) /(qmeters as double)) as int) + " EUR/qm");
+				}				
+			}
+				
 			
 			def matcherNextPage = nextPagePattern.matcher(str);
 			if(matcherNextPage.matches()) {
@@ -160,78 +159,13 @@ def getUrl(HashMap urlMap, String urlT, String IMMO) {
 }
 
 
-def changeNodeChildren(currentNode, text, newNode){
-	if(newNode){
-		def nn = c.addNewNode(currentNode, currentNode.getChildCount(), false);
-		c.setNodeText(nn,text);
-		c.setFolded(currentNode, true);
-		return;
-	}
-	return;
-	// the following must be fixed.
-	def ptext = freemind.main.HtmlTools.htmlToPlain(text);
-	def index = ptext.indexOf(":");
-	if(index < 0){
-		// no comparison possible.
-		return;
-	}
-	def searchText = ptext.substring(0, index);
-	//println "Searching for " + searchText;
-	def nodeMap = [];
-	nodeMap.addAll(currentNode.getChildren())
-	while(nodeMap.size > 0) {
-		def node = nodeMap.pop();
-		def ntext = node.getPlainTextContent();
-		def index2 = ntext.indexOf(":");
-		if(index2<0) {
-			continue;
-		}
-		//println "Comparing " + searchText + " with " + ntext;
-		if(ntext.startsWith(searchText)){
-			//println "Detailed comparing " + ptext + " with " + ntext;
-			// this is the comparison:
-			if(ntext.equals(ptext)) {
-				// but equal. ok.
-				return;
-			} else {
-				// TEXT HAS CHANGED!
-				c.setNodeText(node, text);
-				c.addIcon(node,freemind.modes.MindIcon.factory("messagebox_warning"));				
-				c.addIcon(currentNode,freemind.modes.MindIcon.factory("messagebox_warning"));				
-				c.setFolded(currentNode, false);
-				return;
-			}
-		}
-	}
-	// not found, strange.
-}
-
-def addData(currentNode, matcherAdditionalData, newNode) {
+def addData(currentNode, matcherAdditionalData) {
 	if(currentNode != null && matcherAdditionalData.matches()) {
 		def data = matcherAdditionalData[0][1].replaceAll('<.*?>', '');
-		def text = "<html><body>"+data+"</body></html>";
-		changeNodeChildren(currentNode, text, newNode);
+		def nn = c.addNewNode(currentNode, currentNode.getChildCount(), false);
+		c.setNodeText(nn,"<html><body>"+data+"</body></html>");
+		c.setFolded(currentNode, true);
 		return data;
 	}
 	return "";
-}
-
-def changeIcon(cnode, newIcon){
-	// remove all icons up to the date icon:
-	def list = []
-	while(cnode.getIcons().size()>0) {
-		def currIcon = cnode.getIcons().lastElement()
-		c.removeLastIcon(cnode);
-		if(currIcon.getName().contains("full-") || currIcon.getName().contains("button_cancel")){
-			// last, if icon found
-			break;
-		}
-		list.add(0,currIcon)
-		//println "Removing " + currIcon
-	}
-	c.addIcon(cnode,newIcon);
-	for(otherIcon in list){
-		c.addIcon(cnode, otherIcon);
-		//println "Readding " + otherIcon
-	}
 }

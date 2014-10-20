@@ -20,10 +20,14 @@
  * 
  * Created on 05.10.2004
  */
-/* $Id: EdgeWidthAction.java,v 1.1.2.2.2.2 2007/08/17 20:41:57 christianfoltin Exp $ */
+
 
 package freemind.modes.mindmapmode.actions;
 
+import javax.swing.Action;
+import javax.swing.JMenuItem;
+
+import freemind.controller.MenuItemSelectedListener;
 import freemind.controller.actions.generated.instance.EdgeWidthFormatAction;
 import freemind.controller.actions.generated.instance.XmlAction;
 import freemind.modes.EdgeAdapter;
@@ -32,7 +36,7 @@ import freemind.modes.MindMapNode;
 import freemind.modes.mindmapmode.MindMapController;
 import freemind.modes.mindmapmode.actions.xml.ActionPair;
 
-public class EdgeWidthAction extends NodeGeneralAction implements NodeActorXml {
+public class EdgeWidthAction extends NodeGeneralAction implements NodeActorXml, MenuItemSelectedListener {
 	private int mWidth;
 
 	public EdgeWidthAction(MindMapController controller, int width) {
@@ -51,15 +55,11 @@ public class EdgeWidthAction extends NodeGeneralAction implements NodeActorXml {
 	}
 
 	public void setEdgeWidth(MindMapNode node, int width) {
-		if(width == getWidth(node)) {
+		if (width == getWidth(node)) {
 			return;
 		}
-		modeController.getActionFactory().startTransaction(
-				(String) getValue(NAME));
-		modeController.getActionFactory().executeAction(
-				getActionPair(node, width));
-		modeController.getActionFactory().endTransaction(
-				(String) getValue(NAME));
+		modeController.doTransaction(
+				(String) getValue(NAME), getActionPair(node, width));
 
 	}
 
@@ -106,6 +106,18 @@ public class EdgeWidthAction extends NodeGeneralAction implements NodeActorXml {
 			returnValue = Integer.toString(width);
 		}
 		return /* controller.getText("edge_width") + */returnValue;
+	}
+
+	/* (non-Javadoc)
+	 * @see freemind.controller.MenuItemSelectedListener#isSelected(javax.swing.JMenuItem, javax.swing.Action)
+	 */
+	public boolean isSelected(JMenuItem pCheckItem, Action pAction) {
+		int width = getMindMapController().getSelected().getEdge().getRealWidth();
+		return width == mWidth;
+	}
+
+	public int getWidth() {
+		return mWidth;
 	}
 
 }

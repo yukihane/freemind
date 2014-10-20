@@ -20,7 +20,7 @@
  * 
  * Created on 05.10.2004
  */
-/* $Id: NodeStyleAction.java,v 1.1.2.2.2.7 2008/05/13 18:58:10 christianfoltin Exp $ */
+
 
 package freemind.modes.mindmapmode.actions;
 
@@ -63,13 +63,8 @@ public class NodeStyleAction extends NodeGeneralAction implements NodeActorXml,
 	}
 
 	public void setStyle(MindMapNode node, String style) {
-		modeController.getActionFactory().startTransaction(
-				(String) getValue(NAME));
-		modeController.getActionFactory().executeAction(
-				getActionPair(node, style));
-		modeController.getActionFactory().endTransaction(
-				(String) getValue(NAME));
-
+		modeController.doTransaction(
+				(String) getValue(NAME), getActionPair(node, style));
 	}
 
 	private ActionPair getActionPair(MindMapNode targetNode, String style) {

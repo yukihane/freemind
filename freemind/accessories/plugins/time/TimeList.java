@@ -19,7 +19,7 @@
  *
  * Created on 04.02.2005
  */
-/* $Id: TimeList.java,v 1.1.2.6 2008/12/09 21:09:43 christianfoltin Exp $ */
+
 package accessories.plugins.time;
 
 import java.awt.Container;
@@ -64,8 +64,6 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
-import javax.swing.event.TableModelEvent;
-import javax.swing.event.TableModelListener;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableCellRenderer;
@@ -551,7 +549,7 @@ public class TimeList extends MindMapHookAdapter implements
 
 	public static void replace(IReplaceInputInformation info,
 			String searchString, String replaceString) {
-		String regExp = "(" + getPureRegularExpression(searchString) + ")";
+		String regExp = "(" + (searchString) + ")";
 		Pattern p = Pattern.compile(regExp, Pattern.CASE_INSENSITIVE);
 		// String replacement = getPureRegularExpression(replaceString);
 		String replacement = (replaceString);
@@ -648,7 +646,7 @@ public class TimeList extends MindMapHookAdapter implements
 		updateModel(model, node);
 		timeTableModel = model;
 		mFlatNodeTableFilterModel = new FlatNodeTableFilterModel(
-				timeTableModel, NODE_TEXT_COLUMN);
+				timeTableModel, NODE_TEXT_COLUMN, NODE_NOTES_COLUMN);
 		if(sorter == null) {
 			sorter = new TableSorter(mFlatNodeTableFilterModel);
 			timeTable.setModel(sorter);

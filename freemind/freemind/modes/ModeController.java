@@ -16,7 +16,7 @@
  *along with this program; if not, write to the Free Software
  *Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
-/* $Id: ModeController.java,v 1.14.14.9.2.25 2008/12/09 21:09:43 christianfoltin Exp $ */
+
 
 package freemind.modes;
 
@@ -185,12 +185,12 @@ public interface ModeController extends TextTranslator {
 	void nodeChanged(MindMapNode n);
 
 	/**
-	 * Is called when a node is selected.
+	 * Is called when a node is deselected.
 	 */
 	void onLostFocusNode(NodeView node);
 
 	/**
-	 * Is called when a node is deselected.
+	 * Is called when a node is selected.
 	 */
 	void onFocusNode(NodeView node);
 
@@ -272,8 +272,9 @@ public interface ModeController extends TextTranslator {
 	/**
 	 * The onCreateNodeHook is called for every node (depest nodes first) after
 	 * registration.
+	 * @param pFireCreateEvent TODO
 	 */
-	void registerNodeLifetimeListener(NodeLifetimeListener listener);
+	void registerNodeLifetimeListener(NodeLifetimeListener listener, boolean pFireCreateEvent);
 
 	void deregisterNodeLifetimeListener(NodeLifetimeListener listener);
 

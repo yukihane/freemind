@@ -19,11 +19,9 @@
  *
  * Created on 23.09.2004
  */
-/* $Id: UndoActionHandler.java,v 1.1.2.1.2.3 2007/08/12 08:14:16 dpolivaev Exp $ */
 
 package freemind.modes.mindmapmode.actions.xml;
 
-import freemind.controller.actions.generated.instance.UndoXmlAction;
 import freemind.modes.mindmapmode.MindMapController;
 import freemind.modes.mindmapmode.actions.RedoAction;
 import freemind.modes.mindmapmode.actions.UndoAction;
@@ -44,13 +42,11 @@ public class UndoActionHandler {
 
 	public void executeAction(ActionPair pair) {
 		if (!controller.isUndoAction()) {
-			if (!(pair.getDoAction() instanceof UndoXmlAction)) {
-				redo.clear();
-				undo.add(pair);
-				// undo.print();
-				undo.setEnabled(true);
-				redo.setEnabled(false);
-			}
+			redo.clear();
+			undo.add(pair);
+			// undo.print();
+			undo.setEnabled(true);
+			redo.setEnabled(false);
 		}
 	}
 

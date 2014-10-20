@@ -16,7 +16,7 @@
  *along with this program; if not, write to the Free Software
  *Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
-/* $Id: BrowseXMLElement.java,v 1.6.18.2.2.2 2009/03/09 18:45:05 christianfoltin Exp $ */
+
 
 package freemind.modes.browsemode;
 
@@ -26,6 +26,7 @@ import java.util.Vector;
 import freemind.main.FreeMindMain;
 import freemind.main.XMLElement;
 import freemind.modes.ArrowLinkAdapter;
+import freemind.modes.ArrowLinkTarget;
 import freemind.modes.CloudAdapter;
 import freemind.modes.EdgeAdapter;
 import freemind.modes.ModeController;
@@ -53,7 +54,7 @@ public class BrowseXMLElement extends XMLElementAdapter {
 	protected XMLElement createAnotherElement() {
 		// We do not need to initialize the things of XMLElement.
 		return new BrowseXMLElement(mModeController, mArrowLinkAdapters,
-				mIDToTarget);
+				mIdToTarget);
 	}
 
 	protected NodeAdapter createNodeAdapter(FreeMindMain frame, String nodeClass) {
@@ -77,6 +78,12 @@ public class BrowseXMLElement extends XMLElementAdapter {
 		return new BrowseArrowLinkModel(source, target, frame);
 	}
 
+	protected ArrowLinkTarget createArrowLinkTarget(NodeAdapter source,
+			NodeAdapter target, FreeMindMain frame) {
+		// FIXME: Need an implementation here
+		return null;
+	}
+	
 	protected NodeAdapter createEncryptedNode(String additionalInfo) {
 		NodeAdapter node = createNodeAdapter(frame, ENCRYPTED_BROWSE_NODE);
 		setUserObject(node);

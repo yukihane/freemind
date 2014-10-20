@@ -25,11 +25,15 @@
  */
 package freemind.extensions;
 
+import java.io.IOException;
+import java.io.Writer;
+import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 import java.util.Iterator;
 
 import freemind.main.XMLElement;
 import freemind.modes.MindMapNode;
+import freemind.modes.mindmapmode.actions.xml.ActionPair;
 import freemind.view.mindmapview.NodeView;
 
 /**
@@ -161,6 +165,9 @@ public class PermanentNodeHookAdapter extends NodeHookAdapter implements
 	 */
 	protected HashMap loadNameValuePairs(XMLElement xml) {
 		HashMap result = new HashMap();
+		if(xml.getChildren().isEmpty()) {
+			return result;
+		}
 		XMLElement child = (XMLElement) xml.getChildren().get(0);
 		if (child != null && PARAMETERS.equals(child.getName())) {
 			for (Iterator i = child.enumerateAttributeNames(); i.hasNext();) {
@@ -205,6 +212,40 @@ public class PermanentNodeHookAdapter extends NodeHookAdapter implements
 		getController().setToolTip(node, key, value);
 	}
 
+	/* (non-Javadoc)
+	 * @see freemind.extensions.PermanentNodeHook#executeTransaction(freemind.modes.mindmapmode.actions.xml.ActionPair)
+	 */
+	protected void executeTransaction(final ActionPair pair)
+			throws InterruptedException, InvocationTargetException {
+	}
+
+	/* (non-Javadoc)
+	 * @see freemind.extensions.PermanentNodeHook#registerFilter()
+	 */
+	public void registerFilter() {
+	}
+
+	/* (non-Javadoc)
+	 * @see freemind.extensions.PermanentNodeHook#deregisterFilter()
+	 */
+	public void deregisterFilter() {
+	}
+
+	/* (non-Javadoc)
+	 * @see freemind.extensions.PermanentNodeHook#filterAction(freemind.modes.mindmapmode.actions.xml.ActionPair)
+	 */
+	public ActionPair filterAction(ActionPair pPair) {
+		return null;
+	}
+
+	public void processUnfinishedLinks() {
+	}
+
+	/* (non-Javadoc)
+	 * @see freemind.extensions.PermanentNodeHook#saveHtml(java.io.Writer)
+	 */
+	public void saveHtml(Writer pFileout) throws IOException {
+	}
 
 	
 }

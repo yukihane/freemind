@@ -16,7 +16,7 @@
  *along with this program; if not, write to the Free Software
  *Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
-/* $Id: FileMapModel.java,v 1.7.18.5.2.3 2007/08/17 20:41:57 christianfoltin Exp $ */
+
 
 package freemind.modes.filemode;
 
@@ -26,7 +26,6 @@ import java.io.Writer;
 import java.net.URL;
 
 import freemind.main.FreeMindMain;
-import freemind.modes.LinkRegistryAdapter;
 import freemind.modes.MapAdapter;
 import freemind.modes.MindMapLinkRegistry;
 import freemind.modes.MindMapNode;
@@ -49,7 +48,7 @@ public class FileMapModel extends MapAdapter {
 		super(frame, modeController);
 		setRoot(new FileNodeModel(root, getFrame(), this));
 		getRootNode().setFolded(false);
-		linkRegistry = new LinkRegistryAdapter();
+		linkRegistry = new MindMapLinkRegistry();
 	}
 
 	//
